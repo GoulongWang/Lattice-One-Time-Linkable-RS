@@ -12,3 +12,5 @@ _t/
 *.out
 *.toc
 *.synctex.gz
+
+.venv

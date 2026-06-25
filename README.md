@@ -1,9 +1,4 @@
-# Lattice One-Time Linkable Ring Signature — Reference Implementation & Benchmarks
-
-Proof-of-concept implementation and empirical performance analysis of the
-lattice-based, commitment-tag **(one-time) Linkable Ring Signature (LRS)** from the
-thesis *"Post-Quantum Linkable Ring Signatures Based on Lattice"* (Guolong Wang, NCCU).
-
+# Lattice-based One-Time Linkable Ring Signature — Implementation & Benchmarks
 The scheme works over the ring `R_q = Z_q[X]/(X^N + 1)` and implements
 Setup / KeyGen / Sign / Verify / Link (Algorithms 1–5). The code is a **correctness +
 benchmark reference in pure NumPy** — its goal is to validate correctness and analyze
@@ -32,16 +27,14 @@ results/                    # generated tables, plots and raw JSON (committed)
 ```
 
 ## Requirements
-
+- Python 3.9+
 ```bash
 pip install -r requirements.txt   # numpy, matplotlib
 ```
-Python 3.9+.
 
-## Reproducing the experiments
-
+## 執行步驟
 ```bash
-# correctness sanity check
+# 正確性檢查
 python3 test_correctness.py
 
 # Experiment A — parameter sets + rejection-sampling constants (Table A)
@@ -91,7 +84,9 @@ of two, Lemma 1 (partial splitting of `X^N+1`, `d=2`) holds throughout.
 | Sign median (ms)| 50   | 1643  | 4024  | 7043   |
 | Verify (ms)     | 18   | 135   | 553   | 1147   |
 | Link (ms)       | 14.4 | 14.6  | 15.0  | 15.8   |
-| Signature (KB)  | 54.0 | 202.8 | 712.8 | 1392.8 |
+| Public key (KB) | 4.00 | 4.00  | 4.00  | 4.00   |
+| Secret key (KB) | 1.00 | 1.00  | 1.00  | 1.00   |
+| Signature (KB)  | 54.00| 202.75| 712.75| 1392.75|
 
 - **Verify and signature size scale linearly in `n`**; **KeyGen and Link are ~constant in `n`**.
 - **Sign** is dominated by Lyubashevsky rejection sampling (geometric retries, mean
