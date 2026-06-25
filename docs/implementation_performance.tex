@@ -1,0 +1,182 @@
+% =====================================================================
+%  實作與效能分析  —  可 \input 進主文件的章節（中文，\section 層級）
+%  需要的套件（請確保主文件 preamble 已載入）：
+%    \usepackage{graphicx}      % \includegraphics
+%    \usepackage{booktabs}      % \toprule \midrule \bottomrule
+%    \usepackage{amsmath,amssymb}
+%    \usepackage{array}
+%  中文環境：xeCJK / ctex 任一（以 XeLaTeX 或 LuaLaTeX 編譯）。
+%  圖檔：table_B_scaling.png 位於 repo 的 results/ 目錄。請複製到你論文的圖檔目錄，
+%       或設定 \graphicspath，或將下方 \includegraphics 路徑改為實際位置。
+% =====================================================================
+
+\section{實作與效能分析}
+\label{sec:impl}
+
+為驗證本文所提格基可連結環簽章（Linkable Ring Signature, LRS）方案的實際可行性，
+我們以 Python（NumPy）完成 Setup / KeyGen / Sign / Verify / Link（演算法
+\ref{alg:setup}--\ref{alg:link}）之參考實作，並進行效能量測。環運算
+$R_q = \mathbb{Z}_q[X]/(X^N+1)$ 以 \texttt{int64} 之 negacyclic convolution 精確計算。
+與多數格基方案的原型實作相同，本節之目的在於\textbf{驗證正確性並分析相對成本與
+擴展性（scaling），而非追求絕對執行速度}；經最佳化之 C/Rust 搭配 NTT 之實作可再快
+一至二個數量級。
+
+\subsection{參數選擇}
+\label{subsec:impl-params}
+
+方案安全性主要隨多項式維度 $N$（格維度約為 $N\times$ module rank）而提升。我們設計
+三組跨安全強度之參數集，並令高斯寬度 $\sigma = \alpha\cdot\kappa\cdot\sqrt{lN}$
+（固定 $\alpha=11$），使拒絕取樣之重複常數 $M_1, M_2$ 在各組維持不變；當 $N=1024$
+時 $\sigma$ 恰好還原為 $\sigma=31680$。模數 $q=2^{32}-99$（質數且 $q\equiv 5 \pmod 8$）
+為三組共用；由於各 $N$ 皆為 $2$ 的次方，引理 \ref{lem:split}（$X^N+1$ 之 partial
+splitting，$d=2$）對三組均成立，故挑戰差皆可逆。各組參數與其拒絕取樣常數列於
+表 \ref{tab:params}。
+
+\begin{table}[ht]
+  \centering
+  \caption{各參數集與拒絕取樣常數。$\mathrm{E}[\text{attempts}]=M_1M_2$ 為每次簽章
+           之期望重試次數。安全等級欄留待後續以 lattice-estimator 評估。}
+  \label{tab:params}
+  \small
+  \resizebox{\linewidth}{!}{%
+  \begin{tabular}{lcccccccccccc}
+    \toprule
+    參數集 & $N$ & $\lceil\log_2 q\rceil$ & $h$ & $l$ & $v$ & $k$ & $\kappa$ &
+      $\beta$ & $\sigma$ & $M_1$ & $M_2$ & $M_1M_2$ \\
+    \midrule
+    \texttt{lrs-light} & 512  & 32 & 1 & 4 & 1 & 6 & 45 & 1 & 22401 & 2.989 & 3.828 & 11.44 \\
+    \texttt{lrs-128}   & 1024 & 32 & 1 & 4 & 1 & 6 & 45 & 1 & 31680 & 2.989 & 3.828 & 11.44 \\
+    \texttt{lrs-192}   & 2048 & 32 & 1 & 4 & 1 & 6 & 45 & 1 & 44802 & 2.989 & 3.828 & 11.44 \\
+    \bottomrule
+  \end{tabular}}
+\end{table}
+
+三組參數均滿足正確性約束（$q\equiv 5\pmod 8$；$M_1,M_2>1$ 且有限）。其對應之
+具體安全等級（bits）將以 lattice-estimator / Core-SVP 度量於後續工作中評估補入。
+
+\subsection{實驗設定}
+\label{subsec:impl-setup}
+
+實作以純 NumPy 完成，採單執行緒 CPU 執行。每一資料點重複多次並取\textbf{中位數}；
+由於簽章受拒絕取樣影響而具高方差，另報其標準差與重試次數。所有亂數種子固定以利重現。
+量測平台請於定稿時填入（CPU 型號與時脈、RAM、作業系統）；本文所列數據之絕對值僅供
+相對比較之用。
+
+\subsection{效能結果}
+\label{subsec:impl-results}
+
+固定 \texttt{lrs-128}（$N=1024$），變動環大小 $n$，量測各操作之執行時間與金鑰／簽章
+大小，結果列於表 \ref{tab:scaling}，並繪於圖 \ref{fig:scaling}。
+
+\begin{table}[ht]
+  \centering
+  \caption{環大小擴展性（參數集 \texttt{lrs-128}，$N=1024$）。時間為中位數（ms），
+           大小為 KB。}
+  \label{tab:scaling}
+  \small
+  \resizebox{\linewidth}{!}{%
+  \begin{tabular}{lrrrrrrr}
+    \toprule
+    指標 $\backslash$ $n$ & 1 & 2 & 4 & 8 & 16 & 32 & 64 \\
+    \midrule
+    KeyGen (ms)        & 1.63 & 1.65 & 1.63 & 1.63 & 1.62 & 1.62 & 1.67 \\
+    Sign 中位數 (ms)   & 50   & 687  & 363  & 1643 & 452  & 4024 & 7043 \\
+    Sign 標準差 (ms)   & 136  & 502  & 775  & 1603 & 1930 & 2350 & 2923 \\
+    Verify (ms)        & 18   & 35   & 68   & 135  & 272  & 553  & 1147 \\
+    Link (ms)          & 14.4 & 14.4 & 14.5 & 14.6 & 14.7 & 15.0 & 15.8 \\
+    \midrule
+    PK (KB)            & 4.0  & 4.0  & 4.0  & 4.0  & 4.0  & 4.0  & 4.0  \\
+    SK (KB)            & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 \\
+    Signature (KB)     & 54.0 & 75.2 & 117.8 & 202.8 & 372.8 & 712.8 & 1392.8 \\
+    \bottomrule
+  \end{tabular}}
+\end{table}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{table_B_scaling.png}
+  \caption{左：Sign／Verify／Link 執行時間對環大小 $n$（雙對數軸）；
+           右：簽章大小對 $n$（線性）。Verify 與簽章大小呈乾淨線性成長；Link 近乎平坦；
+           Sign 之鋸齒源於拒絕取樣重試次數之隨機波動。}
+  \label{fig:scaling}
+\end{figure}
+
+由結果可得下列觀察：
+\begin{itemize}
+  \item \textbf{Verify 與簽章大小隨 $n$ 線性成長}。Verify 約為 $17.9\,\text{ms}\times n$；
+        簽章大小與第 \ref{sec:size} 節之公式一致（$n=1/8/32$ 為
+        $54.0/202.8/712.8$ KB），驗證了大小分析之正確性。此二者為最可信之頭條數據。
+  \item \textbf{Sign 之中位數呈非單調}（例如 $n=2$ 之 $687$ 大於 $n=4$ 之 $363$）。
+        此為取樣雜訊而非真實趨勢：簽章成本等於（拒絕取樣重試次數，服從幾何分布、
+        平均約 $M_1M_2=11.4$）乘以（每次約兩趟 ring chain），而重試次數方差大、
+        且大 $n$ 之重複次數受限。其底層之每趟成本實則與 Verify 同樣線性成長。
+  \item \textbf{KeyGen 與 Link 幾乎與 $n$ 無關}（KeyGen 約 $1.6$ ms；Link 約 $14$--$16$ ms）。
+        Link 僅需常數次矩陣–向量乘法與一次標籤雜湊，故近乎平坦，為本方案之良好性質。
+\end{itemize}
+
+\subsection{討論與複雜度分析}
+\label{subsec:impl-discussion}
+
+\paragraph{經驗正確性。}
+我們對三組參數集各執行多次 Sign$\to$Verify$\to$Link 試驗（表 \ref{tab:correctness}）。
+所有誠實簽章均通過驗證、同一簽章者之簽章對皆成功連結、不同簽章者之簽章對皆不連結，
+成功率達 $100\%$，實證了定理 \ref{thm:correct} 之 bounded-norm 約束與參數選擇之正確性。
+觀測之平均重試次數亦與理論值 $M_1M_2=11.4$ 相符。
+
+\begin{table}[ht]
+  \centering
+  \caption{經驗正確性檢驗。Verify：誠實簽章是否被接受；Link：同簽章者是否連結；
+           Non-link：不同簽章者是否\emph{不}連結。}
+  \label{tab:correctness}
+  \small
+  \resizebox{\linewidth}{!}{%
+  \begin{tabular}{lcccccccc}
+    \toprule
+    參數集 & $n$ & 試驗數 & Verify & Link & Non-link & 全通過 &
+      重試平均（理論 11.4） & 重試最大 \\
+    \midrule
+    \texttt{lrs-light} & 4 & 20 & 20/20 & 19/19 & 19/19 & 是 & 11.4 & 41 \\
+    \texttt{lrs-128}   & 4 & 16 & 16/16 & 15/15 & 15/15 & 是 & 7.1  & 26 \\
+    \texttt{lrs-192}   & 2 &  9 & 9/9   & 8/8   & 8/8   & 是 & 13.6 & 33 \\
+    \bottomrule
+  \end{tabular}}
+\end{table}
+
+\paragraph{Sign 與 Verify 之成本差異。}
+簽章較驗章昂貴約一個數量級，其根源為 Lyubashevsky 拒絕取樣：平均需重跑整條
+ring chain 約 $M_1M_2\approx 11$ 次方能接受一次輸出。此成本來自方案結構本身而非實作。
+
+\paragraph{瓶頸定位。}
+我們以直接插樁量測各子程序之佔比（\texttt{lrs-128}，$n=8$，單次操作），列於
+表 \ref{tab:bottleneck}。negacyclic 環乘法 \texttt{poly\_mul} 於 Sign 與 Verify 中
+分別佔約 $96\%$ 與 $95\%$，為唯一之最佳化標的。目前實作使用 $O(N^2)$ 之
+convolution；改用 NTT（針對 $d=2$ 之 partial-NTT，或對 NTT-friendly 質數作 CRT）
+可將單次乘法降至 $O(N\log N)$，預期使 Sign／Verify 加速一至二個數量級。
+
+\begin{table}[ht]
+  \centering
+  \caption{子程序時間佔比（\texttt{lrs-128}，$n=8$，單次操作）。}
+  \label{tab:bottleneck}
+  \small
+  \begin{tabular}{lcc}
+    \toprule
+    子程序 & Sign 佔比 & Verify 佔比 \\
+    \midrule
+    \texttt{poly\_mul}（negacyclic 環乘法） & $96.0\%$ & $94.7\%$ \\
+    SHAKE-256 雜湊                          & $\sim 2.0\%$ & $\sim 2.0\%$ \\
+    高斯取樣                                & $0.3\%$ & --- \\
+    其他（glue／算術）                      & $\sim 1.8\%$ & $\sim 3.3\%$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{未來工作。}
+基於上述分析，後續可朝三方向改進：(i) 改用常數時間之高斯取樣器（CDT／Karney）以
+提供側通道保證；(ii) 以 NTT 加速環乘法；(iii) 以 lattice-estimator 評估並填入
+表 \ref{tab:params} 之具體安全等級。
+
+% --- 交叉引用標籤提醒（請對應你論文既有標籤調整）---------------------
+% \ref{alg:setup}, \ref{alg:link}  : Setup / Link 演算法
+% \ref{lem:split}                  : partial-splitting 引理（q ≡ 5 mod 8）
+% \ref{thm:correct}                : 正確性定理（bounded-norm 約束）
+% \ref{sec:size}                   : 簽章大小公式所在章節

@@ -1,0 +1,77 @@
+{
+  "param": "lrs-128",
+  "n": 8,
+  "sign_retries": 2,
+  "sign": {
+    "label": "Sign",
+    "wall_ms": 318.9,
+    "buckets": [
+      {
+        "bucket": "poly_mul (ring mult)",
+        "ms": 305.2,
+        "pct": 95.7,
+        "calls": 770
+      },
+      {
+        "bucket": "SHAKE-256 hashing (H2)",
+        "ms": 6.35,
+        "pct": 2.0,
+        "calls": 18
+      },
+      {
+        "bucket": "Gaussian sampling",
+        "ms": 1.22,
+        "pct": 0.4,
+        "calls": 34
+      },
+      {
+        "bucket": "SHAKE-256 hashing (H)",
+        "ms": 0.2,
+        "pct": 0.1,
+        "calls": 1
+      },
+      {
+        "bucket": "other (glue/arith)",
+        "ms": 5.94,
+        "pct": 1.9,
+        "calls": null
+      }
+    ]
+  },
+  "verify": {
+    "label": "Verify",
+    "wall_ms": 135.4,
+    "buckets": [
+      {
+        "bucket": "poly_mul (ring mult)",
+        "ms": 127.92,
+        "pct": 94.5,
+        "calls": 320
+      },
+      {
+        "bucket": "SHAKE-256 hashing (H2)",
+        "ms": 2.9,
+        "pct": 2.1,
+        "calls": 8
+      },
+      {
+        "bucket": "Gaussian sampling",
+        "ms": 0.0,
+        "pct": 0.0,
+        "calls": 0
+      },
+      {
+        "bucket": "SHAKE-256 hashing (H)",
+        "ms": 0.0,
+        "pct": 0.0,
+        "calls": 0
+      },
+      {
+        "bucket": "other (glue/arith)",
+        "ms": 4.62,
+        "pct": 3.4,
+        "calls": null
+      }
+    ]
+  }
+}

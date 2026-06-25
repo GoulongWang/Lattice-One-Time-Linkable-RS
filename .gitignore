@@ -1,3 +1,14 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# local scratch (not for the repo)
+.scratch/
+_t/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz

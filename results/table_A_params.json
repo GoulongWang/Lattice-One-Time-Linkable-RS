@@ -1,0 +1,53 @@
+[
+  {
+    "set": "lrs-light",
+    "N": 512,
+    "log2q": 32,
+    "h": 1,
+    "l": 4,
+    "v": 1,
+    "k": 6,
+    "kappa": 45,
+    "beta": 1,
+    "sigma": 22401,
+    "M1": 2.989,
+    "M2": 3.828,
+    "exp_attempts": 11.44,
+    "constraints_ok": true,
+    "sec_bits": "TBD"
+  },
+  {
+    "set": "lrs-128",
+    "N": 1024,
+    "log2q": 32,
+    "h": 1,
+    "l": 4,
+    "v": 1,
+    "k": 6,
+    "kappa": 45,
+    "beta": 1,
+    "sigma": 31680,
+    "M1": 2.989,
+    "M2": 3.828,
+    "exp_attempts": 11.44,
+    "constraints_ok": true,
+    "sec_bits": "TBD"
+  },
+  {
+    "set": "lrs-192",
+    "N": 2048,
+    "log2q": 32,
+    "h": 1,
+    "l": 4,
+    "v": 1,
+    "k": 6,
+    "kappa": 45,
+    "beta": 1,
+    "sigma": 44802,
+    "M1": 2.989,
+    "M2": 3.828,
+    "exp_attempts": 11.44,
+    "constraints_ok": true,
+    "sec_bits": "TBD"
+  }
+]

@@ -1,79 +1,113 @@
-# LRS Scheme — Implementation Feasibility Report & Benchmark
+# Lattice One-Time Linkable Ring Signature — Reference Implementation & Benchmarks
 
-Reference (proof-of-concept) implementation of the lattice-based, commitment-tag
-**Linkable Ring Signature** from *"Post-Quantum Linkable Ring Signatures Based on
-Lattice"* (Guolong Wang, NCCU). Covers Setup / KeyGen / Sign / Verify / Link
-(Algorithms 1–5) and produces a Raptor-style timing-and-size table.
+Proof-of-concept implementation and empirical performance analysis of the
+lattice-based, commitment-tag **(one-time) Linkable Ring Signature (LRS)** from the
+thesis *"Post-Quantum Linkable Ring Signatures Based on Lattice"* (Guolong Wang, NCCU).
 
-## Feasibility verdict
+The scheme works over the ring `R_q = Z_q[X]/(X^N + 1)` and implements
+Setup / KeyGen / Sign / Verify / Link (Algorithms 1–5). The code is a **correctness +
+benchmark reference in pure NumPy** — its goal is to validate correctness and analyze
+relative cost and scaling, *not* to achieve state-of-the-art absolute speed. An
+optimized C/Rust implementation with NTT multiplication would be 1–2 orders of
+magnitude faster.
 
-**Implementable.** Every building block is standard lattice cryptography
-(negacyclic ring arithmetic, discrete-Gaussian sampling, Lyubashevsky rejection
-sampling, MLWE/MSIS commitments, Fiat-Shamir ring chaining). With the parameter
-set fixed in Table 2 there are no open research questions left — only engineering
-choices. This NumPy reference confirms the scheme runs end-to-end and is correct.
+## Repository layout
 
-## Parameter set (thesis Table 2)
+```
+lrs.py                     # the scheme (Setup/KeyGen/Sign/Verify/Link) + size accounting
+test_correctness.py        # end-to-end correctness checks
 
-| q | N | h | l | v | k | κ | β | σ |
-|---|---|---|---|---|---|---|---|---|
-| 2³² − 99 (prime, ≡5 mod 8) | 1024 | 1 | 4 | 1 | 6 | 45 | 1 | 31680 |
+param_table.py             # Experiment A  -> results/table_A_params.*
+benchmark_full.py          # Experiment B  -> results/benchmark_full.json
+correctness_gate.py        # Experiment C1/C2 -> results/correctness_results.json
+profile_bottleneck.py      # Experiment C3 -> results/profile_results.json
+make_tables.py             # renders Tables B/C1/C3 (+ PNG) from the JSON above
 
-`q ≡ 5 (mod 8)` satisfies Lemma 1 (partial splitting of Xᴺ+1, d=2) so challenge
-differences are invertible. Chosen just below 2³² so `⌈log₂ q⌉ = 32`, matching the
-size accounting in the paper. Rejection constants computed from σ = α·T:
-**M₁ ≈ 2.99, M₂ ≈ 3.83** (expected ~11 signing retries).
+docs/
+  EXPERIMENT_PLAN.md             # the experiment plan (what/why)
+  RESULTS.md                     # full results write-up, mapped to thesis sections
+  implementation_performance.tex # ready-to-\input LaTeX chapter (Chinese, \section level)
 
-## Correctness (test_correctness.py)
+results/                    # generated tables, plots and raw JSON (committed)
+```
 
-All pass:
-- genuine signature verifies (`Verify = 1`);
-- tampered message rejected (`Verify = 0`);
-- two signatures from the **same** key link (`Link = 1`);
-- signatures from **different** keys do not link (`Link = 0`);
-- measured sizes match the paper: 54.0 / 202.8 / 712.8 KB vs 54.1 / 202.9 / 712.9 KB.
+## Requirements
 
-## Benchmark table
+```bash
+pip install -r requirements.txt   # numpy, matplotlib
+```
+Python 3.9+.
 
-| Users | 1 | 8 | 32 |
-|---|---|---|---|
-| KeyGen | 1.7 ms | 1.6 ms | 1.6 ms |
-| Sign | 86 ms | 1623 ms | 5736 ms |
-| Verify | 18 ms | 135 ms | 550 ms |
-| PK | 4.0 KB | 4.0 KB | 4.0 KB |
-| SK | 1.0 KB | 1.0 KB | 1.0 KB |
-| Signature | 54.0 KB | 202.8 KB | 712.8 KB |
+## Reproducing the experiments
 
-(Also rendered as `benchmark_table.png`.)
+```bash
+# correctness sanity check
+python3 test_correctness.py
 
-### How to read the timings
-- **Sizes are the trustworthy headline numbers** — they reproduce the paper's
-  formula to within rounding, validating Table 3.
-- **Verify scales linearly in n** (≈ 17 ms × n), as expected from one AOS ring pass.
-- **Sign is noisy and dominated by rejection-sampling retries** (geometric, mean
-  ~M₁·M₂ ≈ 11 attempts, each re-running the whole ring chain). The numbers show
-  relative scaling on an **unoptimised, pure-NumPy CPU reference**, not absolute
-  speed. A C/Rust implementation with NTT-style multiplication would be 1–2 orders
-  of magnitude faster; treat these as a functional baseline.
+# Experiment A — parameter sets + rejection-sampling constants (Table A)
+python3 param_table.py
 
-## Implementation notes
-- Polynomial multiplication is exact NumPy int64 negacyclic convolution. Overflow
-  analysis: every product is (full-range matrix entry ≈2³¹) × (short Gaussian or
-  ternary vector), so partial sums stay below 2⁶³ — int64 is safe, no NTT required.
-- Discrete Gaussian = rounded continuous normal (adequate for a PoC; a thesis-grade
-  artifact may want a CDT/Karney sampler for constant-time guarantees).
-- Hashes H (→ S_β^k) and H₂ (→ challenge space C) use SHAKE-256.
+# Experiment B — ring-size scaling (run once per ring size n; results merge into JSON)
+#   args: <param_set> <n> [reps] [time_budget_s]
+for n in 1 2 4 8 16 32 64; do python3 benchmark_full.py lrs-128 $n 8; done
 
-## Files
-- `lrs.py` — the scheme (Setup/KeyGen/Sign/Verify/Link + sizing).
-- `test_correctness.py` — correctness checks.
-- `benchmark.py` — per-ring-size benchmark (`python3 benchmark.py <n> <reps>`).
-- `make_table.py` — renders the table from `benchmark_results.json`.
-- `benchmark_table.png / .md / .csv`, `benchmark_results.json` — outputs.
+# Experiment C1/C2 — correctness gate + rejection-retry distribution
+#   args: <param_set> <n> [reps] [time_budget_s]
+python3 correctness_gate.py lrs-light 4 20
+python3 correctness_gate.py lrs-128  4 16
+python3 correctness_gate.py lrs-192  2 12
 
-## Suggested next steps for the thesis
-1. Replace the Gaussian sampler with a constant-time one and report it.
-2. Optimise multiplication (partial NTT for d=2, or CRT over NTT-friendly primes)
-   to obtain competitive Sign/Verify numbers.
-3. Add a `Link` micro-benchmark column if you want to report linking cost.
-4. Run a lattice estimator on (q,N,k,β,σ) to state the concrete security level.
+# Experiment C3 — subroutine bottleneck profile
+python3 profile_bottleneck.py lrs-128 8
+
+# render all tables + the scaling plot from the JSON
+python3 make_tables.py
+```
+
+All outputs land in `results/`. The scripts write per-(set, n) entries and **merge**
+into the JSON, so the sweep can be built up across several short runs.
+
+## Parameter sets
+
+Security scales primarily with the polynomial degree `N`. The Gaussian width is set
+to `σ = α·κ·√(lN)` with a fixed `α = 11`, so the rejection-sampling constants
+`M1 ≈ 2.99`, `M2 ≈ 3.83` stay constant across sets (mean ~11 signing retries).
+`q = 2^32 − 99` (prime, `≡ 5 mod 8`) is shared by all sets; since every `N` is a power
+of two, Lemma 1 (partial splitting of `X^N+1`, `d=2`) holds throughout.
+
+| Set        | N    | ⌈log₂q⌉ | l | k | κ | β | σ     | security |
+|------------|------|---------|---|---|---|---|-------|----------|
+| lrs-light  | 512  | 32      | 4 | 6 | 45| 1 | 22401 | TBD      |
+| lrs-128    | 1024 | 32      | 4 | 6 | 45| 1 | 31680 | TBD      |
+| lrs-192    | 2048 | 32      | 4 | 6 | 45| 1 | 44802 | TBD      |
+
+> Concrete security (bits) via lattice-estimator / Core-SVP is left as future work.
+
+## Results at a glance (lrs-128, ring size n)
+
+| Metric \ n      | 1    | 8     | 32    | 64     |
+|-----------------|------|-------|-------|--------|
+| KeyGen (ms)     | 1.6  | 1.6   | 1.6   | 1.7    |
+| Sign median (ms)| 50   | 1643  | 4024  | 7043   |
+| Verify (ms)     | 18   | 135   | 553   | 1147   |
+| Link (ms)       | 14.4 | 14.6  | 15.0  | 15.8   |
+| Signature (KB)  | 54.0 | 202.8 | 712.8 | 1392.8 |
+
+- **Verify and signature size scale linearly in `n`**; **KeyGen and Link are ~constant in `n`**.
+- **Sign** is dominated by Lyubashevsky rejection sampling (geometric retries, mean
+  ~11), so its medians are noisy; the underlying per-attempt cost tracks Verify.
+- **Empirical correctness was 100%** across all three parameter sets (Verify / Link /
+  Non-link), validating the bounded-norm parameter constraints.
+- **Bottleneck:** negacyclic ring multiplication (`poly_mul`) accounts for ~95–96% of
+  both Sign and Verify — the single target for an NTT-based speedup.
+
+See `docs/RESULTS.md` for the full write-up.
+
+## Notes
+
+- Discrete Gaussian sampling uses a rounded continuous normal (fine for a PoC; a
+  constant-time CDT/Karney sampler is recommended for a production artifact).
+- Polynomial multiplication is exact `int64` negacyclic convolution (overflow-safe for
+  these parameters); no NTT yet.
+- This is research code for a thesis; it is **not** constant-time and not intended for
+  production use.

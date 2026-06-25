@@ -21,31 +21,64 @@ import hashlib
 import time
 
 # ----------------------------------------------------------------------------
-# Parameters (thesis Table 2)
+# Parameter sets
 # ----------------------------------------------------------------------------
-N      = 1024
-# smallest prime >= 2^32 with q = 5 (mod 8)  -> partial splitting (Lemma 1, d=2)
-Q      = 4294967197          # = 2^32 - 99, prime, == 5 (mod 8); 32-bit so log q = 32
-H_DIM  = 1                   # h : A is h x l
-L_DIM  = 4                   # l : sk in S_beta^l
-V_DIM  = 1                   # v
-K_DIM  = 6                   # k : commitment randomness r in S_beta^k
-KAPPA  = 45                  # challenge l1 weight
-BETA   = 1                   # ternary secret / randomness  (l_inf <= 1)
-SIGMA  = 31680.0             # Gaussian width
+# Security in this family scales primarily with the polynomial degree N (lattice
+# dimension ~ N * module-rank) and the module ranks (l, k).  We expose several
+# sets at different N; the Gaussian width sigma is scaled as alpha * kappa *
+# sqrt(l*N) with a FIXED alpha so the rejection constants M1, M2 stay constant
+# across sets (well-behaved retry count).  alpha = 11 reproduces the thesis
+# Table-2 value sigma = 31680 at N = 1024.
+#
+# q = 2^32 - 99 is prime and == 5 (mod 8); since every N here is a power of two,
+# Lemma 1 (partial splitting of X^N+1, d=2) holds for all sets with this q, so a
+# single modulus is reused.  The "sec_bits" field is left as None (TBD): concrete
+# security estimation (lattice-estimator / Core-SVP) is deferred to future work.
+ALPHA = 11.0                 # sigma / (kappa * sqrt(l*N));  alpha=11 -> M1~2.99
+Q_DEFAULT = 4294967197       # = 2^32 - 99, prime, == 5 (mod 8)
 
-assert Q % 8 == 5
-# rejection-sampling repetition constants M (Theorem 1), from sigma = alpha*T:
-#   z_j   center v = d*sk,  T  = kappa*sqrt(l*N)
-#   z_c,j center v = d*r2,  T2 = kappa*sqrt(k*N)
-T1   = KAPPA * np.sqrt(L_DIM * N)
-T2   = KAPPA * np.sqrt(K_DIM * N)
-A1   = SIGMA / T1
-A2   = SIGMA / T2
-M1   = np.exp(12.0 / A1 + 1.0 / (2 * A1 * A1))
-M2   = np.exp(12.0 / A2 + 1.0 / (2 * A2 * A2))
+def _make_set(N, l=4, k=6, h=1, v=1, kappa=45, beta=1, q=Q_DEFAULT, alpha=ALPHA):
+    sigma = round(alpha * kappa * np.sqrt(l * N))
+    return {"N": N, "Q": q, "H_DIM": h, "L_DIM": l, "V_DIM": v, "K_DIM": k,
+            "KAPPA": kappa, "BETA": beta, "SIGMA": float(sigma), "sec_bits": None}
 
-QH = Q // 2  # for centered reduction
+PARAM_SETS = {
+    # lower-security lightweight proof-of-concept set
+    "lrs-light": _make_set(N=512),
+    # thesis Table-2 baseline (sigma rounds to the published 31680)
+    "lrs-128":   _make_set(N=1024),
+    # higher-security set
+    "lrs-192":   _make_set(N=2048),
+}
+
+# Module globals are (re)bound by set_params(); a default is set at import time
+# below so existing scripts that `import lrs` keep working unchanged.
+N = Q = QH = H_DIM = L_DIM = V_DIM = K_DIM = KAPPA = BETA = SIGMA = None
+T1 = T2 = A1 = A2 = M1 = M2 = None
+PARAM_NAME = None
+
+def set_params(name):
+    """Rebind module-level parameter globals to the named set in PARAM_SETS."""
+    global N, Q, QH, H_DIM, L_DIM, V_DIM, K_DIM, KAPPA, BETA, SIGMA
+    global T1, T2, A1, A2, M1, M2, PARAM_NAME
+    ps = PARAM_SETS[name] if isinstance(name, str) else name
+    PARAM_NAME = name if isinstance(name, str) else "custom"
+    N = ps["N"]; Q = ps["Q"]
+    H_DIM = ps["H_DIM"]; L_DIM = ps["L_DIM"]; V_DIM = ps["V_DIM"]; K_DIM = ps["K_DIM"]
+    KAPPA = ps["KAPPA"]; BETA = ps["BETA"]; SIGMA = ps["SIGMA"]
+    assert Q % 8 == 5, "q must be == 5 (mod 8) for Lemma 1 (partial splitting, d=2)"
+    QH = Q // 2  # for centered reduction
+    # rejection-sampling repetition constants M (Theorem 1), from sigma = alpha*T:
+    #   z_j   center v = d*sk,  T  = kappa*sqrt(l*N)
+    #   z_c,j center v = d*r2,  T2 = kappa*sqrt(k*N)
+    T1 = KAPPA * np.sqrt(L_DIM * N)
+    T2 = KAPPA * np.sqrt(K_DIM * N)
+    A1 = SIGMA / T1
+    A2 = SIGMA / T2
+    M1 = np.exp(12.0 / A1 + 1.0 / (2 * A1 * A1))
+    M2 = np.exp(12.0 / A2 + 1.0 / (2 * A2 * A2))
+
+set_params("lrs-128")  # default: thesis Table-2 baseline (backward compatible)
 
 # ----------------------------------------------------------------------------
 # Ring arithmetic over R_q = Z_q[X]/(X^N + 1).  A polynomial is an int64[N].
@@ -218,8 +251,12 @@ def _rej_accept(z_polys, v_polys, sigma, M):
     val = np.exp((-2.0 * inner + nv2) / (2.0 * sigma * sigma)) / M
     return _rng.random() < min(1.0, val)
 
+# instrumentation: number of rejection-sampling attempts used by the last sign()
+_LAST_RETRIES = 0
+
 def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=400):
     """Algorithm 3.  L is list of public keys (each a vec of h polys)."""
+    global _LAST_RETRIES
     rng = rng or _rng
     n = len(L)
     j = signer_index
@@ -236,7 +273,7 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=400):
         new_state = state
     c1, c2 = commit(pp, sk, r2)                       # c = Com(sk; r2)
 
-    for _ in range(_max_retry):
+    for _attempt in range(_max_retry):
         y = sample_gaussian_vec(rng, K_DIM)
         B1y = matvec(pp["B1"], y)
         B2y = matvec(pp["B2"], y)
@@ -280,6 +317,7 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=400):
             continue
 
         sig = {"d1": d[0], "z": z, "z_c": z_c, "I": I}
+        _LAST_RETRIES = _attempt + 1   # total attempts incl. the accepted one
         return sig, new_state
     raise RuntimeError("signing exceeded retry budget")
 
