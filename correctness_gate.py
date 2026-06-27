@@ -75,7 +75,7 @@ entry = {
     "retries_mean": float(np.mean(retries)),
     "retries_max": int(np.max(retries)),
     "retries_all": retries,
-    "M1M2_theory": float(lrs.M1 * lrs.M2),
+    "Mc_theory": float(lrs.MC),
 }
 
 data = {}
@@ -88,4 +88,4 @@ with open(OUT, "w") as f:
 
 print(f"  -> verify {entry['verify_success']}  link {entry['link_success']}  "
       f"nonlink {entry['nonlink_success']}  all_pass={entry['all_pass']}  "
-      f"retries mean {entry['retries_mean']:.1f} (theory {entry['M1M2_theory']:.1f}) max {entry['retries_max']}")
+      f"retries mean {entry['retries_mean']:.1f} (theory {entry['Mc_theory']:.1f}) max {entry['retries_max']}")

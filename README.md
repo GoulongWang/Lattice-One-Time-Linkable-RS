@@ -62,8 +62,10 @@ into the JSON, so the sweep can be built up across several short runs.
 ## Parameter sets
 
 Security scales primarily with the polynomial degree `N`. The Gaussian width is set
-to `σ = α·κ·√(lN)` with a fixed `α = 11`, so the rejection-sampling constants
-`M1 ≈ 2.99`, `M2 ≈ 3.83` stay constant across sets (mean ~11 signing retries).
+to `σ = α·κ·√(lN)` with a fixed `α = 11`, so the rejection-sampling constants stay
+constant across sets. Sign uses a single joint rejection test over the stacked
+response (`z‖z_c`), with combined constant `M_c ≈ 5.67` (mean ~5-6 signing retries) —
+cheaper in expectation than two separate tests (`M1·M2 ≈ 11.4`).
 `q = 2^32 − 99` (prime, `≡ 5 mod 8`) is shared by all sets; since every `N` is a power
 of two, Lemma 1 (partial splitting of `X^N+1`, `d=2`) holds throughout.
 
