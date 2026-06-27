@@ -5,9 +5,9 @@ benchmark_full.json, so the full sweep can be built up across several short runs
 (the sandbox caps each call at ~45 s).
 
 Usage:  python3 benchmark_full.py <param_set> <n> [reps]
-Example: python3 benchmark_full.py lrs-128 8 8
+Example: python3 benchmark_full.py lrs-512 8 8
 
-Measures KeyGen / Sign / Verify / Link (median + std, ms) and PK / SK / Signature
+Measures KeyGen / Sign / Verify / Link (mean + std, ms) and PK / SK / Signature
 sizes (KB), plus the mean rejection-sampling attempt count per signature.
 """
 import sys, time, json, os, platform, statistics
@@ -19,7 +19,7 @@ os.makedirs("results", exist_ok=True)
 param = sys.argv[1]
 n     = int(sys.argv[2])
 reps  = int(sys.argv[3]) if len(sys.argv) > 3 else 8
-BUDGET_S = float(sys.argv[4]) if len(sys.argv) > 4 else 30.0  # stop sign loop after this many s (>=3 reps)
+BUDGET_S = float("inf")
 KG_REPS   = 15
 LINK_REPS = 50
 OUT = "results/benchmark_full.json"
@@ -70,14 +70,14 @@ for _ in range(LINK_REPS):
 
 pkb, skb, sgb = lrs.sizes_bits(n)
 
-def med_std(xs):
-    return (float(statistics.median(xs)),
+def mean_std(xs):
+    return (float(statistics.mean(xs)),
             float(statistics.pstdev(xs)) if len(xs) > 1 else 0.0)
 
-kg_m, kg_s   = med_std(kg)
-sg_m, sg_s   = med_std(sign_t)
-vf_m, vf_s   = med_std(ver_t)
-lk_m, lk_s   = med_std(link_t)
+kg_m, kg_s   = mean_std(kg)
+sg_m, sg_s   = mean_std(sign_t)
+vf_m, vf_s   = mean_std(ver_t)
+lk_m, lk_s   = mean_std(link_t)
 
 entry = {
     "param": param, "n": n, "reps": len(sign_t),

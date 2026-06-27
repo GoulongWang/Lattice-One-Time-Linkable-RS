@@ -1,57 +1,57 @@
 {
-  "param": "lrs-128",
+  "param": "lrs-1024",
   "n": 8,
   "sign_retries": 2,
   "sign": {
     "label": "Sign",
-    "wall_ms": 318.9,
+    "wall_ms": 301.9,
     "buckets": [
       {
         "bucket": "poly_mul (ring mult)",
-        "ms": 305.2,
-        "pct": 95.7,
+        "ms": 290.39,
+        "pct": 96.2,
         "calls": 770
       },
       {
         "bucket": "SHAKE-256 hashing (H2)",
-        "ms": 6.35,
-        "pct": 2.0,
+        "ms": 4.59,
+        "pct": 1.5,
         "calls": 18
       },
       {
         "bucket": "Gaussian sampling",
-        "ms": 1.22,
+        "ms": 1.2,
         "pct": 0.4,
         "calls": 34
       },
       {
         "bucket": "SHAKE-256 hashing (H)",
-        "ms": 0.2,
-        "pct": 0.1,
+        "ms": 0.15,
+        "pct": 0.0,
         "calls": 1
       },
       {
         "bucket": "other (glue/arith)",
-        "ms": 5.94,
-        "pct": 1.9,
+        "ms": 5.55,
+        "pct": 1.8,
         "calls": null
       }
     ]
   },
   "verify": {
     "label": "Verify",
-    "wall_ms": 135.4,
+    "wall_ms": 126.2,
     "buckets": [
       {
         "bucket": "poly_mul (ring mult)",
-        "ms": 127.92,
-        "pct": 94.5,
+        "ms": 119.91,
+        "pct": 95.0,
         "calls": 320
       },
       {
         "bucket": "SHAKE-256 hashing (H2)",
-        "ms": 2.9,
-        "pct": 2.1,
+        "ms": 2.1,
+        "pct": 1.7,
         "calls": 8
       },
       {
@@ -68,8 +68,8 @@
       },
       {
         "bucket": "other (glue/arith)",
-        "ms": 4.62,
-        "pct": 3.4,
+        "ms": 4.18,
+        "pct": 3.3,
         "calls": null
       }
     ]

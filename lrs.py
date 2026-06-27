@@ -44,11 +44,11 @@ def _make_set(N, l=4, k=6, h=1, v=1, kappa=45, beta=1, q=Q_DEFAULT, alpha=ALPHA)
 
 PARAM_SETS = {
     # lower-security lightweight proof-of-concept set
-    "lrs-light": _make_set(N=512),
+    "lrs-512": _make_set(N=512),
     # thesis Table-2 baseline (sigma rounds to the published 31680)
-    "lrs-128":   _make_set(N=1024),
+    "lrs-1024":   _make_set(N=1024),
     # higher-security set
-    "lrs-192":   _make_set(N=2048),
+    "lrs-2048":   _make_set(N=2048),
 }
 
 # Module globals are (re)bound by set_params(); a default is set at import time
@@ -78,7 +78,7 @@ def set_params(name):
     M1 = np.exp(12.0 / A1 + 1.0 / (2 * A1 * A1))
     M2 = np.exp(12.0 / A2 + 1.0 / (2 * A2 * A2))
 
-set_params("lrs-128")  # default: thesis Table-2 baseline (backward compatible)
+set_params("lrs-1024")  # default: thesis Table-2 baseline (backward compatible)
 
 # ----------------------------------------------------------------------------
 # Ring arithmetic over R_q = Z_q[X]/(X^N + 1).  A polynomial is an int64[N].
