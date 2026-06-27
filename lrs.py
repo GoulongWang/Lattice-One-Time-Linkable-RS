@@ -55,12 +55,13 @@ PARAM_SETS = {
 # below so existing scripts that `import lrs` keep working unchanged.
 N = Q = QH = H_DIM = L_DIM = V_DIM = K_DIM = KAPPA = BETA = SIGMA = None
 T1 = T2 = A1 = A2 = M1 = M2 = None
+TC = AC = MC = None   # combined (stacked l+k) rejection constants
 PARAM_NAME = None
 
 def set_params(name):
     """Rebind module-level parameter globals to the named set in PARAM_SETS."""
     global N, Q, QH, H_DIM, L_DIM, V_DIM, K_DIM, KAPPA, BETA, SIGMA
-    global T1, T2, A1, A2, M1, M2, PARAM_NAME
+    global T1, T2, A1, A2, M1, M2, TC, AC, MC, PARAM_NAME
     ps = PARAM_SETS[name] if isinstance(name, str) else name
     PARAM_NAME = name if isinstance(name, str) else "custom"
     N = ps["N"]; Q = ps["Q"]
@@ -77,6 +78,12 @@ def set_params(name):
     A2 = SIGMA / T2
     M1 = np.exp(12.0 / A1 + 1.0 / (2 * A1 * A1))
     M2 = np.exp(12.0 / A2 + 1.0 / (2 * A2 * A2))
+    # combined rejection over the stacked response (z_j || z_c,j), center
+    # v = (d*sk || d*r2), T = kappa*sqrt((l+k)*N).  Because sqrt(l+k) <
+    # sqrt(l)+sqrt(k), one joint test has M_c < M1*M2 -> ~half the retries.
+    TC = KAPPA * np.sqrt((L_DIM + K_DIM) * N)
+    AC = SIGMA / TC
+    MC = np.exp(12.0 / AC + 1.0 / (2 * AC * AC))
 
 set_params("lrs-1024")  # default: thesis Table-2 baseline (backward compatible)
 
@@ -308,12 +315,13 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=400):
         z[j]   = vec_add(u,   scalar_vec(d[j], sk))
         z_c[j] = vec_add(u_c, scalar_vec(d[j], r2))
 
-        # rejection sampling (Theorem 1)
+        # rejection sampling (Theorem 1): single joint test over the stacked
+        # response (z_j || z_c,j) with combined center v = (d*sk || d*r2).
+        # Equivalent to one Lyubashevsky rejection on the full vector, and
+        # cheaper in expectation than two separate tests (M_c < M1*M2).
         v1 = scalar_vec(d[j], sk)
         v2 = scalar_vec(d[j], r2)
-        if not _rej_accept(z[j], v1, SIGMA, M1):
-            continue
-        if not _rej_accept(z_c[j], v2, SIGMA, M2):
+        if not _rej_accept(z[j] + z_c[j], v1 + v2, SIGMA, MC):
             continue
 
         sig = {"d1": d[0], "z": z, "z_c": z_c, "I": I}
