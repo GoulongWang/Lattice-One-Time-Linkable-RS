@@ -2,7 +2,7 @@
 
 Reads/writes everything under results/.
 """
-import json, csv, os
+import json, os
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -12,60 +12,73 @@ R = "results"
 os.makedirs(R, exist_ok=True)
 def rp(name): return os.path.join(R, name)
 
-# ---------- Table B: ring-size scaling (lrs-128) ----------
+# ---------- Table B: ring-size scaling (lrs-1024, lrs-2048) ----------
 B = json.load(open(rp("benchmark_full.json")))
 res = B["results"]
-ns = sorted({int(k.split(":")[1]) for k in res if k.startswith("lrs-128:")})
-def get(n): return res[f"lrs-128:{n}"]
+
+# (param set, N, table label) rendered as one Table B section each
+PARAM_SETS = [("lrs-1024", 1024, "B1"), ("lrs-2048", 2048, "B2")]
 
 rows = [
-    ("KeyGen (ms)",    lambda e: f"{e['keygen_ms']:.2f}"),
-    ("Sign median (ms)", lambda e: f"{e['sign_ms']:.0f}"),
-    ("Sign std (ms)",  lambda e: f"{e['sign_std']:.0f}"),
-    ("Verify (ms)",    lambda e: f"{e['verify_ms']:.0f}"),
-    ("Link (ms)",      lambda e: f"{e['link_ms']:.1f}"),
-    ("PK (KB)",        lambda e: f"{e['pk_kb']:.1f}"),
-    ("SK (KB)",        lambda e: f"{e['sk_kb']:.2f}"),
-    ("Signature (KB)", lambda e: f"{e['sig_kb']:.1f}"),
+    ("KeyGen (ms)",         lambda e: f"{e['keygen_ms']:.2f}"),
+    ("Sign (mean) (ms)",    lambda e: f"{e['sign_ms']:.0f}"),
+    ("Verify (ms)",         lambda e: f"{e['verify_ms']:.0f}"),
+    ("Link (ms)",           lambda e: f"{e['link_ms']:.1f}"),
+    ("PK (KB)",             lambda e: f"{e['pk_kb']:.1f}"),
+    ("SK (KB)",             lambda e: f"{e['sk_kb']:.2f}"),
+    ("Signature (KB)",      lambda e: f"{e['sig_kb']:.1f}"),
     ("Sign retries (mean)", lambda e: f"{e['retries_mean']:.1f}"),
 ]
-hdr = ["Metric \\ n"] + [str(n) for n in ns]
-md = ["| " + " | ".join(hdr) + " |", "|" + "|".join(["---"] * len(hdr)) + "|"]
-for label, fn in rows:
-    md.append("| " + label + " | " + " | ".join(fn(get(n)) for n in ns) + " |")
-md_txt = "\n".join(md)
-with open(rp("table_B_scaling.md"), "w") as f:
-    f.write("# Table B -- Ring-size scaling (param set lrs-128: N=1024)\n\n")
-    f.write(md_txt + "\n\n")
-    f.write(f"Environment: {B.get('env','?')}, Python {B.get('python','?')}, pure-NumPy reference.\n")
-    f.write("Sign is dominated by Lyubashevsky rejection sampling (geometric retries, "
-            "mean ~M1*M2=11.4), hence the large std; medians shown. Verify and Signature "
-            "size scale linearly in n; KeyGen and Link are ~constant in n.\n")
-with open(rp("table_B_scaling.csv"), "w", newline="") as f:
-    w = csv.writer(f); w.writerow(hdr)
-    for label, fn in rows:
-        w.writerow([label] + [fn(get(n)) for n in ns])
-print(md_txt)
 
-# PNG: Sign/Verify/Link vs n (log-y) + Signature size vs n
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.2))
-sign = [get(n)["sign_ms"] for n in ns]
-ver  = [get(n)["verify_ms"] for n in ns]
-lk   = [get(n)["link_ms"] for n in ns]
-ax1.plot(ns, sign, "o-", label="Sign (median)")
-ax1.plot(ns, ver, "s-", label="Verify")
-ax1.plot(ns, lk, "^-", label="Link")
-ax1.set_xscale("log", base=2); ax1.set_yscale("log")
-ax1.set_xlabel("ring size n"); ax1.set_ylabel("time (ms)")
-ax1.set_title("LRS operation time vs ring size (lrs-128)")
-ax1.legend(); ax1.grid(True, which="both", ls=":", alpha=0.5)
-sig = [get(n)["sig_kb"] for n in ns]
-ax2.plot(ns, sig, "o-", color="C3")
-ax2.set_xlabel("ring size n"); ax2.set_ylabel("signature size (KB)")
-ax2.set_title("Signature size vs ring size (linear)")
-ax2.grid(True, ls=":", alpha=0.5)
-fig.tight_layout(); fig.savefig(rp("table_B_scaling.png"), dpi=130)
-print("wrote table_B_scaling.{md,csv,png}")
+def render_table(param):
+    ns = sorted({int(k.split(":")[1]) for k in res if k.startswith(f"{param}:")})
+    get = lambda n: res[f"{param}:{n}"]
+    hdr = ["Metric \\ n"] + [str(n) for n in ns]
+    md = ["| " + " | ".join(hdr) + " |", "|" + "|".join(["---"] * len(hdr)) + "|"]
+    for label, fn in rows:
+        md.append("| " + label + " | " + " | ".join(fn(get(n)) for n in ns) + " |")
+    return ns, get, "\n".join(md)
+
+sections = []
+for param, Nval, tag in PARAM_SETS:
+    ns, get, md_txt = render_table(param)
+    sections.append(f"## Table {tag} -- {param} (N={Nval})\n\n{md_txt}")
+    print(md_txt)
+
+with open(rp("table_B_scaling.md"), "w") as f:
+    f.write("# Table B -- Ring-size scaling\n\n")
+    f.write("\n\n".join(sections) + "\n\n")
+    f.write(f"Environment: {B.get('env','?')}, Python {B.get('python','?')}, pure-NumPy reference.\n")
+    f.write("Sign is dominated by Lyubashevsky rejection sampling. A single joint rejection "
+            "test over the stacked response (z || z_c) is used, with combined constant "
+            "M_c ~ 5.67 (geometric retry mean), so per-signature time varies widely; "
+            "arithmetic means over 8 reps shown. Verify and Signature size scale linearly "
+            "in n; KeyGen and Link are ~constant in n.\n")
+
+# PNG per param set: KeyGen/Sign/Verify/Link vs n (log-y) + Signature size vs n
+for param, Nval, tag in PARAM_SETS:
+    ns, get, _ = render_table(param)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.2))
+    kg   = [get(n)["keygen_ms"] for n in ns]
+    sign = [get(n)["sign_ms"] for n in ns]
+    ver  = [get(n)["verify_ms"] for n in ns]
+    lk   = [get(n)["link_ms"] for n in ns]
+    ax1.plot(ns, kg, "D-", label="KeyGen")
+    ax1.plot(ns, sign, "o-", label="Sign (mean)")
+    ax1.plot(ns, ver, "s-", label="Verify")
+    ax1.plot(ns, lk, "^-", label="Link")
+    ax1.set_xscale("log", base=2); ax1.set_yscale("log")
+    ax1.set_xlabel("ring size n"); ax1.set_ylabel("time (ms)")
+    ax1.set_title(f"LRS operation time vs ring size ({param})")
+    ax1.legend(); ax1.grid(True, which="both", ls=":", alpha=0.5)
+    sig = [get(n)["sig_kb"] for n in ns]
+    ax2.plot(ns, sig, "o-", color="C3")
+    ax2.set_xlabel("ring size n"); ax2.set_ylabel("signature size (KB)")
+    ax2.set_title(f"Signature size vs ring size ({param})")
+    ax2.grid(True, ls=":", alpha=0.5)
+    fig.tight_layout(); fig.savefig(rp(f"table_B_scaling_{param}.png"), dpi=130)
+    plt.close(fig)
+print("wrote table_B_scaling.md + table_B_scaling_{lrs-1024,lrs-2048}.png")
 
 # ---------- Table C1: correctness gate ----------
 try:
