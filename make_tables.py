@@ -86,7 +86,7 @@ print("wrote table_B_scaling.md + table_B_scaling_{lrs-1024,lrs-2048}.png")
 try:
     C = json.load(open(rp("correctness_results.json")))
     hdr = ["Parameter Set", "n", "Trials", "Verify", "Link", "Non-link", "All pass",
-           "Retries mean (theory 11.4)", "Retries max"]
+           "Retries mean (theory M_c ≈ 5.67)", "Retries max"]
     md = ["| " + " | ".join(hdr) + " |", "|" + "|".join(["---"] * len(hdr)) + "|"]
     order = ["lrs-light", "lrs-128", "lrs-192"]
     items = sorted(C.values(), key=lambda e: (order.index(e["param"]) if e["param"] in order else 9, e["n"]))
@@ -101,8 +101,8 @@ try:
         f.write("\n".join(md) + "\n\n")
         f.write("Verify = honest signatures accepted; Link = same-signer pairs linked; "
                 "Non-link = different-signer pairs not linked. 100% across all sets validates "
-                "the bounded-norm parameter constraints. Retry mean tracks the theoretical "
-                "M1*M2 = 11.4.\n")
+                "the bounded-norm parameter constraints. Retry mean tracks the single joint "
+                "rejection-sampling constant M_c ≈ 5.67.\n")
     print("\n".join(md))
     print("wrote table_C1_correctness.md")
 except FileNotFoundError:
