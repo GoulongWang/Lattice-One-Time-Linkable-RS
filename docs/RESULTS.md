@@ -53,7 +53,7 @@
 | SK (KB) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
 | Signature (KB) | 54.0 | 75.2 | 117.8 | 202.8 | 372.8 | 712.8 | 1392.8 |
 
-圖見 `table_B_scaling.png`（左：Sign/Verify/Link vs n 對數軸；右：簽章大小 vs n 線性）。
+圖見 `table_B_scaling.png`（左：lrs-1024 的 KeyGen/Sign/Verify/Link vs n 對數軸；右：lrs-2048 同樣的操作時間 vs n 對數軸，左右並排比較）。
 
 **判讀（注意陷阱）**：
 - **Verify、簽章大小隨 n 乾淨地線性成長**（Verify ≈ 17.9 ms × n；大小符合論文 Table 3 公式，
@@ -115,6 +115,6 @@ python3 profile_bottleneck.py lrs-1024 8     # Table C3
 python3 make_tables.py                        # 由上述 JSON 渲染所有表格 + PNG
 ```
 
-輸出檔：`table_A_params.*`、`table_B_scaling.*`（含 png）、`table_C1_correctness.md`、
+輸出檔：`table_A_params.{md,json}`、`table_B_scaling.*`（含 png）、`table_C1_correctness.md`、
 `table_C3_bottleneck.md`、以及 `benchmark_full.json` / `correctness_results.json` /
 `profile_results.json`（原始數據）。

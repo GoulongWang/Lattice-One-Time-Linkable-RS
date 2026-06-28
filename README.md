@@ -12,7 +12,7 @@ magnitude faster.
 lrs.py                     # the scheme (Setup/KeyGen/Sign/Verify/Link) + size accounting
 test_correctness.py        # end-to-end correctness checks
 
-param_table.py             # Experiment A  -> results/table_A_params.*
+param_table.py             # Experiment A  -> results/table_A_params.{md,json}
 benchmark_full.py          # Experiment B  -> results/benchmark_full.json
 correctness_gate.py        # Experiment C1/C2 -> results/correctness_results.json
 profile_bottleneck.py      # Experiment C3 -> results/profile_results.json

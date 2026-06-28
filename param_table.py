@@ -3,9 +3,9 @@
 For each parameter set: report (N, ceil(log2 q), l, k, kappa, beta, sigma, M1, M2,
 expected rejection-sampling attempts M1*M2, security bits=TBD) and check the
 correctness constraints (q == 5 mod 8 so Lemma 1 holds; M1, M2 finite/well-behaved).
-Outputs Table A as markdown + csv.
+Outputs Table A as markdown + json (no CSV).
 """
-import csv, json, os
+import json, os
 import numpy as np
 import lrs
 
@@ -51,15 +51,9 @@ with open(os.path.join(RESULTS, "table_A_params.md"), "w") as f:
     f.write("Security (bits) = TBD: concrete lattice-estimator / Core-SVP evaluation is deferred.\n")
     f.write("All sets satisfy the correctness constraints (q==5 mod 8; M1,M2 > 1, finite).\n")
 
-with open(os.path.join(RESULTS, "table_A_params.csv"), "w", newline="") as f:
-    w = csv.DictWriter(f, fieldnames=keys)
-    w.writeheader()
-    for r in rows:
-        w.writerow({k: r[k] for k in keys})
-
 with open(os.path.join(RESULTS, "table_A_params.json"), "w") as f:
     json.dump(rows, f, indent=2)
 
 print(md_txt)
 print("\nconstraints_ok:", all(r["constraints_ok"] for r in rows))
-print("wrote results/table_A_params.{md,csv,json}")
+print("wrote results/table_A_params.{md,json}")

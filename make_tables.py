@@ -1,6 +1,9 @@
-"""Render Tables B and C from the experiment JSON files, plus a PNG of Table B.
+"""Render Tables A, B and C from the experiment JSON files, plus a PNG of Table B.
 
 Reads/writes everything under results/.
+Table A is rendered from table_A_params.json (produced by param_table.py).
+Tables B, C1, C3 are rendered from benchmark_full.json, correctness_results.json,
+and profile_results.json respectively.
 """
 import json, os
 import numpy as np
@@ -11,6 +14,30 @@ import matplotlib.pyplot as plt
 R = "results"
 os.makedirs(R, exist_ok=True)
 def rp(name): return os.path.join(R, name)
+
+# ---------- Table A: parameter sets ----------
+try:
+    A_rows = json.load(open(rp("table_A_params.json")))
+    a_hdr = ["Parameter Set", "N", "ceil(log2 q)", "h", "l", "v", "k",
+             "kappa", "beta", "sigma", "M1", "M2", "E[attempts]=M1*M2", "Security (bits)"]
+    a_keys = ["set", "N", "log2q", "h", "l", "v", "k", "kappa", "beta", "sigma",
+              "M1", "M2", "exp_attempts", "sec_bits"]
+    a_md = ["| " + " | ".join(a_hdr) + " |",
+            "|" + "|".join(["---"] * len(a_hdr)) + "|"]
+    for r in A_rows:
+        a_md.append("| " + " | ".join(str(r[k]) for k in a_keys) + " |")
+    a_md_txt = "\n".join(a_md)
+    with open(rp("table_A_params.md"), "w") as f:
+        f.write("# Table A -- Parameter sets and rejection-sampling constants\n\n")
+        f.write(a_md_txt + "\n\n")
+        f.write("Notes: q = 2^32 - 99 (prime, == 5 mod 8) reused for all sets; every N is a\n")
+        f.write("power of two, so Lemma 1 (partial splitting of X^N+1, d=2) holds throughout.\n")
+        f.write("Security (bits) = TBD: concrete lattice-estimator / Core-SVP evaluation is deferred.\n")
+        f.write("All sets satisfy the correctness constraints (q==5 mod 8; M1,M2 > 1, finite).\n")
+    print(a_md_txt)
+    print("wrote table_A_params.md")
+except FileNotFoundError:
+    print("(table_A_params.json not found -- skip A; run param_table.py first)")
 
 # ---------- Table B: ring-size scaling (lrs-1024, lrs-2048) ----------
 B = json.load(open(rp("benchmark_full.json")))
@@ -57,30 +84,25 @@ with open(rp("table_B_scaling.md"), "w") as f:
             "arithmetic means over 8 reps shown. Verify and Signature size scale linearly "
             "in n; KeyGen and Link are ~constant in n.\n")
 
-# PNG per param set: KeyGen/Sign/Verify/Link vs n (log-y) + Signature size vs n
-for param, Nval, tag in PARAM_SETS:
+# Combined PNG: KeyGen/Sign/Verify/Link vs n (log-y), lrs-1024 and lrs-2048 side by side
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.2))
+for ax, (param, Nval, tag) in zip((ax1, ax2), PARAM_SETS):
     ns, get, _ = render_table(param)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.2))
     kg   = [get(n)["keygen_ms"] for n in ns]
     sign = [get(n)["sign_ms"] for n in ns]
     ver  = [get(n)["verify_ms"] for n in ns]
     lk   = [get(n)["link_ms"] for n in ns]
-    ax1.plot(ns, kg, "D-", label="KeyGen")
-    ax1.plot(ns, sign, "o-", label="Sign (mean)")
-    ax1.plot(ns, ver, "s-", label="Verify")
-    ax1.plot(ns, lk, "^-", label="Link")
-    ax1.set_xscale("log", base=2); ax1.set_yscale("log")
-    ax1.set_xlabel("ring size n"); ax1.set_ylabel("time (ms)")
-    ax1.set_title(f"LRS operation time vs ring size ({param})")
-    ax1.legend(); ax1.grid(True, which="both", ls=":", alpha=0.5)
-    sig = [get(n)["sig_kb"] for n in ns]
-    ax2.plot(ns, sig, "o-", color="C3")
-    ax2.set_xlabel("ring size n"); ax2.set_ylabel("signature size (KB)")
-    ax2.set_title(f"Signature size vs ring size ({param})")
-    ax2.grid(True, ls=":", alpha=0.5)
-    fig.tight_layout(); fig.savefig(rp(f"table_B_scaling_{param}.png"), dpi=130)
-    plt.close(fig)
-print("wrote table_B_scaling.md + table_B_scaling_{lrs-1024,lrs-2048}.png")
+    ax.plot(ns, kg, "D-", label="KeyGen")
+    ax.plot(ns, sign, "o-", label="Sign (mean)")
+    ax.plot(ns, ver, "s-", label="Verify")
+    ax.plot(ns, lk, "^-", label="Link")
+    ax.set_xscale("log", base=2); ax.set_yscale("log")
+    ax.set_xlabel("ring size n"); ax.set_ylabel("time (ms)")
+    ax.set_title(f"LRS operation time vs ring size ({param})")
+    ax.legend(); ax.grid(True, which="both", ls=":", alpha=0.5)
+fig.tight_layout(); fig.savefig(rp("table_B_scaling.png"), dpi=130)
+plt.close(fig)
+print("wrote table_B_scaling.md + table_B_scaling.png")
 
 # ---------- Table C1: correctness gate ----------
 try:

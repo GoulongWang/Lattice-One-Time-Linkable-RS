@@ -8,6 +8,5 @@
 
 Notes: q = 2^32 - 99 (prime, == 5 mod 8) reused for all sets; every N is a
 power of two, so Lemma 1 (partial splitting of X^N+1, d=2) holds throughout.
-sigma = alpha * kappa * sqrt(l*N) with alpha = 11, so M1, M2 are constant.
 Security (bits) = TBD: concrete lattice-estimator / Core-SVP evaluation is deferred.
 All sets satisfy the correctness constraints (q==5 mod 8; M1,M2 > 1, finite).
