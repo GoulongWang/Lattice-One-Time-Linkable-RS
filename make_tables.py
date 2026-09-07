@@ -9,7 +9,20 @@ import json, os
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
+
+# Chart labels are Chinese set in 標楷體; matplotlib's default DejaVu Sans has
+# no CJK glyphs. macOS ships 標楷體 as BiauKaiTC; Windows names it DFKai-SB.
+KAI_FONTS = ["BiauKaiTC", "BiauKaiHK", "DFKai-SB", "Kaiti TC", "STKaiti", "Kaiti SC"]
+_avail = {f.name for f in fm.fontManager.ttflist}
+_pick = next((f for f in KAI_FONTS if f in _avail), None)
+if _pick:
+    plt.rcParams["font.sans-serif"] = [_pick] + plt.rcParams["font.sans-serif"]
+else:
+    print("WARNING: 找不到標楷體字型，圖上中文將顯示為豆腐框"
+          " (install one of: %s)" % ", ".join(KAI_FONTS))
+plt.rcParams["axes.unicode_minus"] = False
 
 R = "results"
 os.makedirs(R, exist_ok=True)
@@ -92,13 +105,16 @@ for ax, (param, Nval, tag) in zip((ax1, ax2), PARAM_SETS):
     sign = [get(n)["sign_ms"] for n in ns]
     ver  = [get(n)["verify_ms"] for n in ns]
     lk   = [get(n)["link_ms"] for n in ns]
-    ax.plot(ns, kg, "D-", label="KeyGen")
-    ax.plot(ns, sign, "o-", label="Sign (mean)")
-    ax.plot(ns, ver, "s-", label="Verify")
-    ax.plot(ns, lk, "^-", label="Link")
+    # Plotted top-to-bottom as the curves actually stack (Sign > Verify > Link >
+    # KeyGen at every n), so the legend reads in the same order as the lines.
+    # Colors are pinned so reordering does not reshuffle the default cycle.
+    ax.plot(ns, sign, "o-", color="C1", label="Sign")
+    ax.plot(ns, ver, "s-", color="C2", label="Verify")
+    ax.plot(ns, lk, "^-", color="C3", label="Link")
+    ax.plot(ns, kg, "D-", color="C0", label="KeyGen")
     ax.set_xscale("log", base=2); ax.set_yscale("log")
-    ax.set_xlabel("ring size n"); ax.set_ylabel("time (ms)")
-    ax.set_title(f"LRS operation time vs ring size ({param})")
+    ax.set_xlabel("環成員人數 n"); ax.set_ylabel("執行時間 (ms)")
+    ax.set_title(f"LRS 各演算法執行時間（{param}）")
     ax.legend(); ax.grid(True, which="both", ls=":", alpha=0.5)
 fig.tight_layout(); fig.savefig(rp("table_B_scaling.png"), dpi=130)
 plt.close(fig)
