@@ -4,27 +4,34 @@
 
 | Metric \ n | 1 | 2 | 4 | 8 | 16 | 32 | 64 |
 |---|---|---|---|---|---|---|---|
-| KeyGen (ms) | 1.44 | 1.44 | 1.48 | 1.51 | 1.49 | 1.49 | 1.44 |
-| Sign (mean) (ms) | 213 | 313 | 484 | 1047 | 1297 | 2607 | 6513 |
-| Verify (ms) | 16 | 31 | 62 | 123 | 245 | 499 | 1012 |
-| Link (ms) | 12.8 | 12.9 | 13.0 | 13.2 | 13.3 | 13.6 | 13.8 |
-| PK (KB) | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 | 4.0 |
+| KeyGen (ms) | 1.47 | 1.48 | 1.50 | 1.46 | 1.47 | 1.49 | 1.48 |
+| Sign mean (ms) | 225 | 302 | 437 | 917 | 1531 | 2493 | 5410 |
+| Sign std (ms) | 206 | 297 | 435 | 702 | 1278 | 2145 | 6185 |
+| Verify (ms) | 16 | 32 | 62 | 122 | 244 | 491 | 1024 |
+| Link (ms) | 12.8 | 12.9 | 13.0 | 13.1 | 13.1 | 13.4 | 13.8 |
+| PK (KB) | 5.0 | 5.0 | 5.0 | 5.0 | 5.0 | 5.0 | 5.0 |
 | SK (KB) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| Signature (KB) | 54.0 | 75.2 | 117.8 | 202.8 | 372.8 | 712.8 | 1392.8 |
-| Sign retries (mean) | 6.1 | 6.2 | 6.0 | 7.4 | 4.9 | 5.0 | 6.3 |
+| Signature (KB) | 59.0 | 80.2 | 122.8 | 207.8 | 377.8 | 717.8 | 1397.8 |
+| Sign retries (mean) | 6.5 | 5.9 | 5.4 | 6.5 | 5.8 | 4.9 | 5.2 |
 
 ## Table B2 -- lrs-2048 (N=2048)
 
 | Metric \ n | 1 | 2 | 4 | 8 | 16 | 32 | 64 |
 |---|---|---|---|---|---|---|---|
-| KeyGen (ms) | 5.69 | 5.87 | 5.96 | 5.91 | 5.81 | 5.92 | 5.84 |
-| Sign (mean) (ms) | 594 | 1468 | 2502 | 6499 | 6560 | 12222 | 20570 |
-| Verify (ms) | 63 | 120 | 237 | 472 | 953 | 1905 | 3833 |
-| Link (ms) | 51.0 | 51.3 | 51.4 | 51.6 | 52.2 | 51.9 | 52.5 |
-| PK (KB) | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 | 8.0 |
+| KeyGen (ms) | 5.68 | 5.71 | 5.75 | 5.91 | 5.82 | 5.69 | 5.66 |
+| Sign mean (ms) | 623 | 1040 | 1604 | 4130 | 5491 | 11553 | 17586 |
+| Sign std (ms) | 631 | 836 | 1162 | 3893 | 4747 | 12249 | 15727 |
+| Verify (ms) | 61 | 118 | 235 | 467 | 933 | 1872 | 3795 |
+| Link (ms) | 50.3 | 50.1 | 51.8 | 50.4 | 50.7 | 51.0 | 51.8 |
+| PK (KB) | 10.0 | 10.0 | 10.0 | 10.0 | 10.0 | 10.0 | 10.0 |
 | SK (KB) | 2.00 | 2.00 | 2.00 | 2.00 | 2.00 | 2.00 | 2.00 |
-| Signature (KB) | 112.0 | 157.0 | 247.0 | 427.0 | 787.0 | 1507.0 | 2947.0 |
-| Sign retries (mean) | 4.1 | 7.5 | 8.0 | 11.9 | 6.4 | 6.1 | 5.2 |
+| Signature (KB) | 122.0 | 167.0 | 257.0 | 437.0 | 797.0 | 1517.0 | 2957.0 |
+| Sign retries (mean) | 4.5 | 5.3 | 5.1 | 7.6 | 5.4 | 5.9 | 4.5 |
 
-Environment: Linux-6.8.0-124-generic-aarch64-with-glibc2.35, Python 3.10.12, pure-NumPy reference.
-Sign is dominated by Lyubashevsky rejection sampling. A single joint rejection test over the stacked response (z || z_c) is used, with combined constant M_c ~ 5.67 (geometric retry mean), so per-signature time varies widely; arithmetic means over 8 reps shown. Verify and Signature size scale linearly in n; KeyGen and Link are ~constant in n.
+Environment: macOS-26.5.2-arm64-arm-64bit, Python 3.11.9, pure-NumPy reference.
+Sign is dominated by Lyubashevsky rejection sampling. A single joint rejection test over the stacked response (z || z_c) is used, with combined constant M_c ~ 5.67 (geometric retry mean), so per-signature time varies widely. Times are arithmetic means over the reps listed below; the mean (not the median) is reported because E[Sign] = M_c x per-attempt cost is what the theory predicts. Per-point medians are kept in benchmark_full.json. Verify and Signature size scale linearly in n; KeyGen and Link are ~constant in n.
+
+| Metric \ n | 1 | 2 | 4 | 8 | 16 | 32 | 64 |
+|---|---|---|---|---|---|---|---|
+| reps (lrs-1024) | 30 | 30 | 30 | 30 | 30 | 30 | 30 |
+| reps (lrs-2048) | 30 | 30 | 30 | 30 | 30 | 30 | 30 |

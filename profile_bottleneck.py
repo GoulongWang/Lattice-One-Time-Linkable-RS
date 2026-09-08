@@ -1,7 +1,7 @@
 """Experiment C3 -- subroutine bottleneck profiling (direct instrumentation).
 
 Wraps the scheme's key subroutines with accumulating timers + call counters and
-runs one Sign and one Verify (default lrs-128, n=8).  This attributes wall time to
+runs one Sign and one Verify (default lrs-1024, n=8).  This attributes wall time to
 scheme-level operations directly (cProfile pushes numpy's C-level convolution into
 an opaque "other" bucket, so we time the Python entry points instead):
   poly_mul        -- negacyclic ring multiplication (the np.convolve core),
@@ -16,7 +16,7 @@ import lrs
 
 os.makedirs("results", exist_ok=True)
 
-param = sys.argv[1] if len(sys.argv) > 1 else "lrs-128"
+param = sys.argv[1] if len(sys.argv) > 1 else "lrs-1024"
 n     = int(sys.argv[2]) if len(sys.argv) > 2 else 8
 lrs.set_params(param)
 
