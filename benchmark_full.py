@@ -2,13 +2,16 @@
 
 Runs ONE (param-set, ring-size n) point per invocation and merges the result into
 benchmark_full.json, so the full sweep can be built up across several short runs
-(the sandbox caps each call at ~45 s).
+(one point per call keeps each run short and independently re-runnable).
 
 Usage:  python3 benchmark_full.py <param_set> <n> [reps]
-Example: python3 benchmark_full.py lrs-512 8 8
+Example: python3 benchmark_full.py lrs-1024 8 30
 
-Measures KeyGen / Sign / Verify / Link (mean + std, ms) and PK / SK / Signature
-sizes (KB), plus the mean rejection-sampling attempt count per signature.
+Measures KeyGen / Sign / Verify / Link (mean + median + std, ms) and PK / SK /
+Signature sizes (KB), plus the mean rejection-sampling attempt count per
+signature.  Tables report the mean: Sign's cost is (retries ~ Geom(1/M_c)) x
+(per-attempt cost), so E[Sign] = M_c x per-attempt is the statistic the theory
+predicts; the median is stored too but systematically understates it.
 """
 import sys, time, json, os, platform, statistics
 import numpy as np
@@ -70,23 +73,25 @@ for _ in range(LINK_REPS):
 
 pkb, skb, sgb = lrs.sizes_bits(n)
 
-def mean_std(xs):
+def stats(xs):
     return (float(statistics.mean(xs)),
+            float(statistics.median(xs)),
             float(statistics.pstdev(xs)) if len(xs) > 1 else 0.0)
 
-kg_m, kg_s   = mean_std(kg)
-sg_m, sg_s   = mean_std(sign_t)
-vf_m, vf_s   = mean_std(ver_t)
-lk_m, lk_s   = mean_std(link_t)
+kg_m, kg_md, kg_s = stats(kg)
+sg_m, sg_md, sg_s = stats(sign_t)
+vf_m, vf_md, vf_s = stats(ver_t)
+lk_m, lk_md, lk_s = stats(link_t)
 
 entry = {
     "param": param, "n": n, "reps": len(sign_t),
-    "keygen_ms": kg_m, "keygen_std": kg_s,
-    "sign_ms":   sg_m, "sign_std":   sg_s,
-    "verify_ms": vf_m, "verify_std": vf_s,
-    "link_ms":   lk_m, "link_std":   lk_s,
+    "keygen_ms": kg_m, "keygen_median": kg_md, "keygen_std": kg_s,
+    "sign_ms":   sg_m, "sign_median":   sg_md, "sign_std":   sg_s,
+    "verify_ms": vf_m, "verify_median": vf_md, "verify_std": vf_s,
+    "link_ms":   lk_m, "link_median":   lk_md, "link_std":   lk_s,
     "retries_mean": float(np.mean(retries)),
     "retries_all": retries,
+    "log2q": int(np.ceil(np.log2(lrs.Q))),
     "pk_kb":  pkb / 8 / 1024,
     "sk_kb":  skb / 8 / 1024,
     "sig_kb": sgb / 8 / 1024,

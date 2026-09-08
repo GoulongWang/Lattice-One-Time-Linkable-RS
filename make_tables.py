@@ -31,10 +31,10 @@ def rp(name): return os.path.join(R, name)
 # ---------- Table A: parameter sets ----------
 try:
     A_rows = json.load(open(rp("table_A_params.json")))
-    a_hdr = ["Parameter Set", "N", "ceil(log2 q)", "h", "l", "v", "k",
-             "kappa", "beta", "sigma", "M1", "M2", "E[attempts]=M1*M2", "Security (bits)"]
-    a_keys = ["set", "N", "log2q", "h", "l", "v", "k", "kappa", "beta", "sigma",
-              "M1", "M2", "exp_attempts", "sec_bits"]
+    a_hdr = ["Parameter Set", "N", "q", "ceil(log2 q)", "h", "l", "v", "k",
+             "kappa", "beta", "sigma", "M_c", "Security (bits)"]
+    a_keys = ["set", "N", "q_expr", "log2q", "h", "l", "v", "k", "kappa", "beta",
+              "sigma", "Mc", "sec_bits"]
     a_md = ["| " + " | ".join(a_hdr) + " |",
             "|" + "|".join(["---"] * len(a_hdr)) + "|"]
     for r in A_rows:
@@ -43,10 +43,12 @@ try:
     with open(rp("table_A_params.md"), "w") as f:
         f.write("# Table A -- Parameter sets and rejection-sampling constants\n\n")
         f.write(a_md_txt + "\n\n")
-        f.write("Notes: q = 2^32 - 99 (prime, == 5 mod 8) reused for all sets; every N is a\n")
+        f.write("Notes: q = %s (prime, == 5 mod 8) reused for all sets; every N is a\n"
+                % A_rows[0]["q_expr"])
         f.write("power of two, so Lemma 1 (partial splitting of X^N+1, d=2) holds throughout.\n")
+        f.write("M_c is the single joint rejection-sampling constant; E[attempts] = M_c.\n")
         f.write("Security (bits) = TBD: concrete lattice-estimator / Core-SVP evaluation is deferred.\n")
-        f.write("All sets satisfy the correctness constraints (q==5 mod 8; M1,M2 > 1, finite).\n")
+        f.write("All sets satisfy the correctness constraints (q==5 mod 8; M_c > 1, finite).\n")
     print(a_md_txt)
     print("wrote table_A_params.md")
 except FileNotFoundError:
@@ -61,7 +63,8 @@ PARAM_SETS = [("lrs-1024", 1024, "B1"), ("lrs-2048", 2048, "B2")]
 
 rows = [
     ("KeyGen (ms)",         lambda e: f"{e['keygen_ms']:.2f}"),
-    ("Sign (mean) (ms)",    lambda e: f"{e['sign_ms']:.0f}"),
+    ("Sign mean (ms)",      lambda e: f"{e['sign_ms']:.0f}"),
+    ("Sign std (ms)",       lambda e: f"{e['sign_std']:.0f}"),
     ("Verify (ms)",         lambda e: f"{e['verify_ms']:.0f}"),
     ("Link (ms)",           lambda e: f"{e['link_ms']:.1f}"),
     ("PK (KB)",             lambda e: f"{e['pk_kb']:.1f}"),
@@ -79,6 +82,8 @@ def render_table(param):
         md.append("| " + label + " | " + " | ".join(fn(get(n)) for n in ns) + " |")
     return ns, get, "\n".join(md)
 
+_reps_ns = sorted({int(k.split(":")[1]) for k in res})
+
 sections = []
 for param, Nval, tag in PARAM_SETS:
     ns, get, md_txt = render_table(param)
@@ -93,9 +98,17 @@ with open(rp("table_B_scaling.md"), "w") as f:
     f.write(f"Environment: {B.get('env','?')}, Python {B.get('python','?')}, pure-NumPy reference.\n")
     f.write("Sign is dominated by Lyubashevsky rejection sampling. A single joint rejection "
             "test over the stacked response (z || z_c) is used, with combined constant "
-            "M_c ~ 5.67 (geometric retry mean), so per-signature time varies widely; "
-            "arithmetic means over 8 reps shown. Verify and Signature size scale linearly "
-            "in n; KeyGen and Link are ~constant in n.\n")
+            "M_c ~ 5.67 (geometric retry mean), so per-signature time varies widely. "
+            "Times are arithmetic means over the reps listed below; the mean (not the "
+            "median) is reported because E[Sign] = M_c x per-attempt cost is what the "
+            "theory predicts. Per-point medians are kept in benchmark_full.json. "
+            "Verify and Signature size scale linearly in n; KeyGen and Link are "
+            "~constant in n.\n")
+    f.write("\n| Metric \\ n | " + " | ".join(str(n) for n in _reps_ns) + " |\n")
+    f.write("|" + "|".join(["---"] * (len(_reps_ns) + 1)) + "|\n")
+    for param, Nval, tag in PARAM_SETS:
+        f.write("| reps (" + param + ") | "
+                + " | ".join(str(res[f"{param}:{n}"]["reps"]) for n in _reps_ns) + " |\n")
 
 # Combined PNG: KeyGen/Sign/Verify/Link vs n (log-y), lrs-1024 and lrs-2048 side by side
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.2))

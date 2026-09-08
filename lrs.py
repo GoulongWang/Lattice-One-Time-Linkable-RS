@@ -30,12 +30,12 @@ import time
 # across sets (well-behaved retry count).  alpha = 11 reproduces the thesis
 # Table-2 value sigma = 31680 at N = 1024.
 #
-# q = 2^32 - 99 is prime and == 5 (mod 8); since every N here is a power of two,
+# q = 2^40 - 195 is prime and == 5 (mod 8); since every N here is a power of two,
 # Lemma 1 (partial splitting of X^N+1, d=2) holds for all sets with this q, so a
 # single modulus is reused.  The "sec_bits" field is left as None (TBD): concrete
 # security estimation (lattice-estimator / Core-SVP) is deferred to future work.
 ALPHA = 11.0                 # sigma / (kappa * sqrt(l*N));  alpha=11 -> M1~2.99
-Q_DEFAULT = 4294967197       # = 2^32 - 99, prime, == 5 (mod 8)
+Q_DEFAULT = 1099511627581    # = 2^40 - 195, prime, == 5 (mod 8)
 
 def _make_set(N, l=4, k=6, h=1, v=1, kappa=45, beta=1, q=Q_DEFAULT, alpha=ALPHA):
     sigma = round(alpha * kappa * np.sqrt(l * N))
@@ -43,8 +43,6 @@ def _make_set(N, l=4, k=6, h=1, v=1, kappa=45, beta=1, q=Q_DEFAULT, alpha=ALPHA)
             "KAPPA": kappa, "BETA": beta, "SIGMA": float(sigma), "sec_bits": None}
 
 PARAM_SETS = {
-    # lower-security lightweight proof-of-concept set
-    "lrs-512": _make_set(N=512),
     # thesis Table-2 baseline (sigma rounds to the published 31680)
     "lrs-1024":   _make_set(N=1024),
     # higher-security set
@@ -84,6 +82,25 @@ def set_params(name):
     TC = KAPPA * np.sqrt((L_DIM + K_DIM) * N)
     AC = SIGMA / TC
     MC = np.exp(12.0 / AC + 1.0 / (2 * AC * AC))
+    _check_int64_headroom()
+
+def _check_int64_headroom():
+    """Warn if poly_mul's exact int64 convolution is close to overflowing.
+
+    poly_mul convolves a uniform-mod-q operand (|coeff| <= q/2) with a short one
+    (Gaussian width sigma).  Summing N such products with random signs gives a
+    magnitude ~ 2 * (q/2) * sigma * sqrt(N); the factor 2 is calibrated against a
+    direct object-dtype measurement (lrs-2048 at q = 2^40 - 195 peaks at 2^60.8,
+    this estimate gives 2^61.0).  The int64 ceiling is 2^63, so the current sets
+    use about a quarter of the range -- exact, but thin enough that raising q or
+    N further needs a wider accumulator.
+    """
+    est = 2.0 * (Q / 2.0) * SIGMA * np.sqrt(N)
+    if est >= 2.0 ** 62:
+        print("WARNING: poly_mul int64 headroom is thin for %s: estimated peak "
+              "convolution magnitude 2^%.1f against the int64 ceiling 2^63. "
+              "Exact integer arithmetic may silently overflow -- widen the "
+              "accumulator or lower q/N." % (PARAM_NAME, np.log2(est)))
 
 set_params("lrs-1024")  # default: thesis Table-2 baseline (backward compatible)
 
