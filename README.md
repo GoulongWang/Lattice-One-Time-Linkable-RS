@@ -1,180 +1,178 @@
-# Lattice-based One-Time Linkable Ring Signature — Implementation & Benchmarks
-The scheme works over the ring `R_q = Z_q[X]/(X^N + 1)` and implements
-Setup / KeyGen / Sign / Verify / Link (Algorithms 1–5). The code is a **correctness +
-benchmark reference in pure NumPy** — its goal is to validate correctness and analyze
-relative cost and scaling, *not* to achieve state-of-the-art absolute speed. An
-optimized C/Rust implementation with NTT multiplication would be 1–2 orders of
-magnitude faster.
+# Lattice-based One-Time Linkable Ring Signature — 參考實作與效能量測
 
-## Repository layout
+碩論〈Post-Quantum Linkable Ring Signatures Based on Lattice〉的實作與實驗程式碼。
+純 NumPy 參考實作，單執行緒。**目的是驗證正確性與分析相對成本（scaling），不是追求絕對速度**
+——經最佳化的 C/Rust + NTT 實作可以快 1–2 個數量級。
+
+本 README 只講「怎麼跑」。**實驗數字與其解讀請看論文本文**，這裡刻意不放任何數據，
+以免兩邊對不起來。
+
+---
+
+## 檔案結構
 
 ```
-lrs.py                     # the scheme (Setup/KeyGen/Sign/Verify/Link) + size accounting
-test_correctness.py        # end-to-end correctness checks
+lrs.py                  方案實作：Setup / KeyGen / Sign / Verify / Link、環運算、參數集
+test_correctness.py     正確性 sanity check（~30 秒，改完程式先跑這個）
 
-param_table.py             # Experiment A  -> results/table_A_params.{md,json}
-benchmark_full.py          # Experiment B  -> results/benchmark_full.json
-correctness_gate.py        # Experiment C1/C2 -> results/correctness_results.json
-profile_bottleneck.py      # Experiment C3 -> results/profile_results.json
-make_tables.py             # renders Tables B/C1/C3 (+ PNG) from the JSON above
+param_table.py          參數集與拒絕取樣常數
+correctness_gate.py     經驗正確性閘門（Sign→Verify→Link 多次試驗）
+bench_scaling.py        效能量測：對各環大小 n 計時（可續跑）
+analyze_scaling.py      分析量測結果：線性擬合、log-log 斜率、摘要、圖
+make_perf_table.py      效能表（LaTeX，可 \input 進論文）
+plot_perf_figure.py     效能圖（論文字型、線性 n 軸）
 
-docs/
-  EXPERIMENT_PLAN.md             # the experiment plan (what/why)
-  RESULTS.md                     # full results write-up, mapped to thesis sections
-  implementation_performance.tex # ready-to-\input LaTeX chapter (Chinese, \section level)
-
-results/                    # generated tables, plots and raw JSON (committed)
+results/
+  scaling_raw.json          ← 原始量測資料（唯一被追蹤的量測結果之一）
+  correctness_results.json  ← 原始量測資料
 ```
 
-## Requirements
-- Python 3.9+
+**`results/` 裡只有這兩個檔案進版控。** 其餘所有圖、表、摘要都是從它們算出來的，
+執行腳本就會重建（幾秒鐘），因此被 `.gitignore` 擋掉。
+
+這是刻意的：這個 repo 過去兩次都踩到「產物過期」——存進去的表格和論文章節草稿，
+在參數改掉之後沒有跟著更新，而光看檔案是分不出它是新的還是舊的。
+**唯一事實來源是 `results/` 的那兩個 JSON 加上程式碼。**
+
+---
+
+## 環境
+
 ```bash
-pip install -r requirements.txt   # numpy, matplotlib
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt     # numpy, matplotlib
 ```
 
-## 執行步驟
+`plot_perf_figure.py` 需要論文字型（Times New Roman + 標楷體），找不到會直接 assert 失敗，
+並印出它找過的路徑。macOS 把標楷體放在系統的 downloadable asset 裡，所以腳本有明確註冊字型檔。
+在沒有這些字型的機器上，改用 `analyze_scaling.py` 產生的 `scaling_linear.png` 即可，它的字型要求較寬鬆。
+
+---
+
+## 從零重建所有圖表
+
+`results/` 的兩個 JSON 已經在版控裡，所以**不需要重跑量測**，直接算繪即可：
+
 ```bash
-# 正確性檢查
-python3 test_correctness.py
-
-# Experiment A — parameter sets + rejection-sampling constants (Table A)
-python3 param_table.py
-
-# Experiment B — ring-size scaling (run once per ring size n; results merge into JSON)
-#   args: <param_set> <n> [reps] [time_budget_s]
-for n in 1 2 4 8 16 32 64; do python3 benchmark_full.py lrs-1024 $n 8; done
-
-# Experiment C1/C2 — correctness gate + rejection-retry distribution
-#   args: <param_set> <n> [reps] [time_budget_s]
-python3 correctness_gate.py lrs-1024  4 16
-python3 correctness_gate.py lrs-2048  2 12
-
-# Experiment C3 — subroutine bottleneck profile (optional; not run for the
-# numbers below, so results/profile_results.json is absent by default)
-python3 profile_bottleneck.py lrs-1024 8
-
-# render all tables + the scaling plot from the JSON
-python3 make_tables.py
+python3 analyze_scaling.py      # → scaling_summary.{json,md} + scaling_linear.{png,pdf}
+python3 make_perf_table.py      # → performance.tex          （讀 scaling_summary.json）
+python3 plot_perf_figure.py     # → performance_figure.{png,pdf}（讀 scaling_summary.json）
+python3 param_table.py          # → table_A_params.{md,json}  （純參數，不含量測）
 ```
 
-All outputs land in `results/`. The scripts write per-(set, n) entries and **merge**
-into the JSON, so the sweep can be built up across several short runs.
+`analyze_scaling.py` 必須先跑，另外兩支讀它產生的 `scaling_summary.json`。
 
-## Parameter sets
+## 重新量測（只有在改動 lrs.py 之後才需要）
 
-Security scales primarily with the polynomial degree `N`. The Gaussian width is set
-to `σ = α·κ·√(lN)` with a fixed `α = 11`, so the rejection-sampling constants stay
-constant across sets. **Sign runs two independent Lyubashevsky rejection-sampling
-loops** (see "2026-09-08 fix" below): a tag loop guarding the linkable tag's response
-`z = y + d·(r1-r2)` with constant `M_z ≈ 14.83`, followed by a ring loop with a single
-joint rejection test over the stacked response (`z‖z_c`), combined constant
-`M_c ≈ 5.67` (cheaper in expectation than two separate tests, `M1·M2 ≈ 11.4`). The two
-loops are sequential and independent, so `E[Sign attempts] = M_z + M_c ≈ 20.5`.
-`q = 2^40 − 195` (prime, `≡ 5 mod 8`) is shared by both sets; since every `N` is a power
-of two, Lemma 1 (partial splitting of `X^N+1`, `d=2`) holds throughout.
+**先跑正確性檢查**，再花時間量測：
 
-| Set      | N    | q          | ⌈log₂q⌉ | l | k | κ | β | σ     | M_z (tag) | M_c (ring) | M_total | security |
-|----------|------|------------|---------|---|---|---|---|-------|-----------|------------|---------|----------|
-| lrs-1024 | 1024 | 2^40 − 195 | 40      | 4 | 6 | 45| 1 | 31680 | 14.83     | 5.67       | 20.50   | TBD      |
-| lrs-2048 | 2048 | 2^40 − 195 | 40      | 4 | 6 | 45| 1 | 44802 | 14.83     | 5.67       | 20.50   | TBD      |
+```bash
+python3 test_correctness.py                      # ~30 秒
+python3 correctness_gate.py lrs-1024 4 100 99999 # <參數集> <n> [次數] [時間預算秒]
+python3 correctness_gate.py lrs-2048 2 100 99999
+```
 
-> `poly_mul` multiplies exactly over `int64` via `np.convolve`. At `q = 2^40 − 195`,
-> `N = 2048` the peak convolution magnitude is `2^60.8` against the `int64` ceiling of
-> `2^63`, so the arithmetic is still exact but the margin is about 4×; `set_params()`
-> estimates this bound and warns if a future `q`/`N` would exhaust it.
+效能量測可續跑——每簽完一次就存檔，超過時間預算就停，再執行一次會從停的地方接下去：
 
-> Concrete security (bits) via lattice-estimator / Core-SVP is left as future work.
+```bash
+python3 bench_scaling.py 600     # 跑 600 秒後暫停
+python3 bench_scaling.py 600     # 接續
+# ... 重複到印出 ALL DONE
+```
 
-## Results at a glance (lrs-1024, ring size n)
+完整跑完約 **52 分鐘**的計算量（494 次簽章）。跑完後重新執行上一節的算繪指令。
 
-macOS arm64 (Apple M2) / Python 3.11, single-threaded NumPy. Reps/point vary (30 down
-to 11 for large n) because Sign got ~3.6x slower once the tag rejection loop was added
-and each point ran under a wall-clock budget; see `results/benchmark_full.json` for the
-exact reps per point (row below).
+> ⚠️ `bench_scaling.py` 會把結果**合併**進既有的 `scaling_raw.json`。
+> 要從頭量測請先刪掉該檔，否則會混到舊資料。
 
-| Metric \ n | 1 | 2 | 4 | 8 | 16 | 32 | 64 |
-|---|---|---|---|---|---|---|---|
-| KeyGen (ms) | 1.64 | 1.70 | 1.64 | 1.63 | 1.69 | 1.63 | 1.64 |
-| Sign mean (ms) | 361 | 589 | 647 | 1087 | 1954 | 4031 | 4779 |
-| Sign std (ms) | 176 | 376 | 343 | 609 | 1604 | 2758 | 3464 |
-| Verify (ms) | 21 | 38 | 73 | 140 | 278 | 555 | 1148 |
-| Link (ms) | 14.5 | 14.4 | 14.4 | 14.4 | 14.6 | 14.9 | 15.6 |
-| PK (KB) | 5.0 | 5.0 | 5.0 | 5.0 | 5.0 | 5.0 | 5.0 |
-| SK (KB) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| Signature (KB) | 59.0 | 80.2 | 122.8 | 207.8 | 377.8 | 717.8 | 1397.8 |
-| Sign retries, tag (mean) | 12.2 | 17.0 | 12.4 | 14.9 | 12.5 | 17.0 | 14.5 |
-| Sign retries, ring (mean) | 4.9 | 6.7 | 5.5 | 5.7 | 6.1 | 6.6 | 3.9 |
-| Sign retries, total (mean) | 17.1 | 23.6 | 17.8 | 20.6 | 18.6 | 23.6 | 18.5 |
-| reps | 30 | 30 | 30 | 29 | 18 | 13 | 11 |
+---
 
-## Results at a glance (lrs-2048, ring size n)
-| Metric \ n | 1 | 2 | 4 | 8 | 16 | 32 | 64 |
-|---|---|---|---|---|---|---|---|
-| KeyGen (ms) | 6.41 | 6.55 | 6.34 | 6.43 | 6.34 | 6.44 | 6.45 |
-| Sign mean (ms) | 1427 | 1760 | 3002 | 4646 | 6925 | 12492 | 16790 |
-| Sign std (ms) | 828 | 939 | 1398 | 7210 | 4029 | 12302 | 10884 |
-| Verify (ms) | 72 | 137 | 265 | 524 | 1059 | 2092 | 4285 |
-| Link (ms) | 60.2 | 60.1 | 60.0 | 60.2 | 60.9 | 61.0 | 62.6 |
-| PK (KB) | 10.0 | 10.0 | 10.0 | 10.0 | 10.0 | 10.0 | 10.0 |
-| SK (KB) | 2.00 | 2.00 | 2.00 | 2.00 | 2.00 | 2.00 | 2.00 |
-| Signature (KB) | 122.0 | 167.0 | 257.0 | 437.0 | 797.0 | 1517.0 | 2957.0 |
-| Sign retries, tag (mean) | 11.5 | 11.0 | 15.5 | 9.4 | 23.7 | 11.2 | 17.8 |
-| Sign retries, ring (mean) | 5.9 | 5.9 | 6.5 | 7.2 | 4.8 | 5.5 | 3.6 |
-| Sign retries, total (mean) | 17.4 | 16.9 | 22.0 | 16.7 | 28.5 | 16.8 | 21.4 |
-| reps | 21 | 16 | 11 | 9 | 6 | 4 | 5 |
+## 資料格式
 
-Both tables and `docs/RESULTS.md` are produced by `python3 make_tables.py` from
-`results/benchmark_full.json`; per-point reps are limited by a wall-clock budget
-(`results/benchmark_full.json` also stores every raw retry count for exact stats).
+**`results/scaling_raw.json`** — `points` 以 `"<參數集>:<n>"` 為鍵，每個點存下**每一次**的原始計時（ms）
+而非只存平均，所以標準差、中位數、分位數事後都算得出來：
 
-- **Verify and signature size scale linearly in `n`** (Verify ≈ 18 ms × n for lrs-1024,
-  ≈ 65 ms × n for lrs-2048); **KeyGen and Link are ~constant in `n`**.
-- **Sign is dominated by rejection sampling from TWO independent loops** (tag `M_z ≈ 14.83`
-  + ring `M_c ≈ 5.67`, total `M_total ≈ 20.5`), so its mean and std are both large and
-  comparable in size (geometric-retry noise), and it is ~3.6x slower than before the
-  2026-09-08 fix (see below), which only ran the ring loop.
-- **Empirical correctness was 100%** on every completed trial (Verify / Link / Non-link):
-  100/100 for lrs-1024 n=4, 64/64 for lrs-2048 n=2 (see `docs/RESULTS.md` / Table C1);
-  the retry means (17.8 and 23.2) are consistent with theory (`M_total ≈ 20.5`) given the
-  geometric distribution's large variance and the modest trial counts.
+| 欄位 | 內容 |
+|---|---|
+| `keygen` / `sign` / `verify` / `link` | 每次計時的陣列（ms） |
+| `retries_tag` / `retries_ring` | 每次簽章的兩種拒絕取樣次數 |
+| `verify_tagcheck` | Verify 中標記範數檢查單獨的耗時 |
+| `pk_kb` / `sk_kb` / `sig_kb` | 金鑰與簽章大小 |
+| `Mz` / `Mc` | 該參數集的理論拒絕取樣常數 |
 
-### 2026-09-08 fix: tag response was missing its own rejection-sampling test
+頂層另有 `env` / `python` / `numpy` 記錄量測環境。
 
-The thesis's Sign pseudocode (Algorithm 3) has **two separate** Lyubashevsky
-rejection-sampling steps: line 13 restarts the linkable-tag response
-`z = y + d·(r1-r2)` with its own constant `M_z`, independently of the later joint
-ring-response test at line 21 (constant `M_c`, the only one this code previously
-implemented). `lrs.py`'s `sign()` computed `z_tag` unconditionally and never rejected
-it, so the tag's response distribution was not proven simulatable/independent of the
-secret `r1-r2` the way Theorem 1 requires, and every "Sign retries" number published
-before this fix (`M_c ≈ 5.67` only) undercounted the true expected work by a factor of
-`M_total/M_c ≈ 3.6`.
+**`results/correctness_results.json`** — 以 `"<參數集>:<n>"` 為鍵，存試驗次數、
+Verify / Link / Non-link 的通過數、重試次數分布，以及理論值 `Mz_theory` / `Mc_theory` / `Mtotal_theory`。
 
-The fix adds an inner acceptance loop around the tag's `y` sampling, using a new
-constant `M_z`, derived the same way as the existing `M1`/`M2`/`M_c` (Theorem 1,
-`σ = α·T`): the tag's center is `v = d·(r1-r2)` with `r1, r2 ∈ S_β^k` (ternary,
-`β=1`), so by the triangle inequality on the same worst-case bound used for `M2`
-(`T2 = κ√(kN)`, center `d·r`), `‖d·(r1-r2)‖ ≤ ‖d·r1‖ + ‖d·r2‖ ≤ 2·T2`, giving
-`T_z = 2·T2`, `α_z = σ/T_z ≈ 4.49`, `M_z = exp(12/α_z + 1/(2α_z²)) ≈ 14.83` (same for
-both parameter sets, since `α` is fixed). The tag loop is independent of and precedes
-the ring loop (the tag `I` is hashed into the ring's Fiat-Shamir chain, so it must be
-fixed first), so `E[Sign attempts] = M_z + M_c ≈ 20.5`, not `M_c ≈ 5.67`.
+---
 
-Validated with a clean 80-trial measurement isolating just the tag loop on first-time
-signing (where `r1=r2` exactly, so `v=0` exactly and the accept probability is exactly
-`1/M_z` on every attempt, independent of the realized response): empirical mean
-**14.838** against theory `M_z = 14.835` — see `_LAST_RETRIES_TAG` /
-`_LAST_RETRIES_RING` / `_LAST_RETRIES` (total) in `lrs.py` for the per-signature
-instrumentation now exposed, and the "Sign retries, tag/ring/total" rows above for the
-full-sweep confirmation.
+## 給接手者的注意事項
 
-See `docs/RESULTS.md` for the full write-up.
+這幾點是踩過坑才知道的，照順序看：
 
-## Notes
+**1. Sign 的標準差跟平均同一個量級，這是正常的，不是量測壞掉。**
+Sign 的成本 =（拒絕取樣重試次數）×（單趟成本），而重試次數服從幾何分布——
+幾何分布本身就是重尾的，變異係數接近 1。
+Sign 有兩個獨立的重試迴圈（見第 6 點），總重試次數是兩個幾何分布之和，
+變異係數約 **0.74**；實測 22 個資料點的 `std/mean` 平均 **0.705**（範圍 0.46–1.35），吻合。
+**這反而是實作正確的佐證**，不要試圖「修掉」它。
+（若誤以為只有單一迴圈、M = 20.5，算出來會是 0.975，對不上實測。）
 
-- Discrete Gaussian sampling uses a rounded continuous normal (fine for a PoC; a
-  constant-time CDT/Karney sampler is recommended for a production artifact).
-- Polynomial multiplication is exact `int64` negacyclic convolution (overflow-safe for
-  these parameters, with ~4× margin at `q = 2^40 − 195`, `N = 2048`); no NTT yet.
-- This is research code for a thesis; it is **not** constant-time and not intended for
-  production use.
+**2. 表上報的是平均，不是中位數。**
+理論預測的是期望值 `E[Sign] = M_total × 單趟成本`，中位數會系統性低估。
+`analyze_scaling.py` 兩者都算，但論文請用平均。
+
+**3. 四個演算法的重複次數不一樣，不要誤以為是統一的。**
+看 `bench_scaling.py` 開頭的常數：
+
+| 演算法 | 次數 |
+|---|---|
+| KeyGen | 30 |
+| Sign | lrs-1024 全部 30；lrs-2048 為 20，n≥24 降為 12，n≥56 降為 8 |
+| Verify | 每個簽章驗多次，實際約 32–60 |
+| Link | 50（**重複連結同一對簽章**，所以它的標準差量到的是計時抖動，不是演算法變異） |
+
+lrs-2048 大 n 的次數較少是因為單次簽章要十幾秒。實際次數都存在 `scaling_raw.json` 裡，
+`analyze_scaling.py` 的摘要也會印出來——**寫論文時請照實引用，不要寫成統一的 30 次**。
+
+**4. `correctness_results.json` 是 100 次與 64 次，不是 100/100。**
+`lrs-1024:4` 跑了 100 次、`lrs-2048:2` 只跑了 64 次（時間預算用完）。兩者都 100% 通過，
+但論文寫試驗次數時要分開寫。
+
+**5. 量測環境是 Linux aarch64 + Python 3.10.12 + numpy 2.2.6。**
+`requirements.txt` 刻意不釘版本（釘死會讓人在別的平台裝不起來，而程式只用到 numpy 最基本的功能）。
+但**換機器重跑的話絕對時間一定會不同**，所以論文裡比較的應該是相對成本與 scaling，不是絕對毫秒數。
+確切環境記在 `scaling_raw.json` 的 `env` 欄位。
+
+**6. 簽章有兩個獨立的拒絕取樣迴圈，不要只實作一個。**
+這是曾經出過的錯：原本的 `sign()` 只做了環回應的聯合測試（`M_c`），
+漏掉連結標記自己的測試（`M_z`，對應 Algorithm 3 第 9–13 行）。
+少了它，`z = y + d·(r1−r2)` 的分布會洩漏秘密隨機值。
+兩個迴圈依序獨立執行，所以期望嘗試次數是 `M_z + M_c ≈ 20.5`（相加，不是相乘）。
+細節見 `lrs.py` 中 `sign()` 的 docstring。
+
+**7. int64 的精確性餘裕只剩約 4 倍。**
+`poly_mul` 用 `np.convolve` 在 int64 上做精確卷積。在目前的 `q = 2⁴⁰ − 195`、`N = 2048` 下，
+卷積中間值峰值約 `2⁶⁰·⁸`，距離 int64 上限 `2⁶³` 不遠。
+**想再加大 `q` 或試 `N = 4096` 以上之前**，先看 `lrs.py` 的 `_check_int64_headroom()`——
+它每次 `set_params()` 都會估算並在逼近上限時警告。真的溢位的話不會報錯，會靜默算出錯誤結果。
+
+---
+
+## 參數集
+
+安全性主要隨多項式維度 `N` 提升。高斯寬度 `σ = α·κ·√(lN)`（`α = 11` 固定），
+使拒絕取樣常數在各組保持不變。`q = 2⁴⁰ − 195`（質數、`≡ 5 mod 8`）兩組共用；
+因每個 `N` 都是 2 的次方，partial splitting 引理（`X^N+1`，`d = 2`）對兩組均成立。
+
+目前定義了 `lrs-1024`（N=1024）與 `lrs-2048`（N=2048），完整數值跑 `python3 param_table.py` 即得。
+安全等級（bits）尚未以 lattice-estimator / Core-SVP 評估，是留給後續的工作。
+
+---
+
+## 注意
+
+- 高斯取樣用的是四捨五入的連續常態分布，對 PoC 足夠，但**不是常數時間**。
+- 環乘法是 `O(N²)` 的 int64 convolution，尚未實作 NTT——這是最明顯的最佳化標的。
+- 這是論文用的研究程式碼，**不是**常數時間實作，請勿用於正式環境。
