@@ -32,16 +32,18 @@ for name, ps in lrs.PARAM_SETS.items():
         "h": lrs.H_DIM, "l": lrs.L_DIM, "v": lrs.V_DIM, "k": lrs.K_DIM,
         "kappa": lrs.KAPPA, "beta": lrs.BETA,
         "sigma": int(lrs.SIGMA),
+        "Mz": round(float(lrs.MZ), 3),
         "Mc": round(float(lrs.MC), 3),
+        "Mtotal": round(float(lrs.MZ + lrs.MC), 3),
         "constraints_ok": bool(ok_mod and ok_M),
         "sec_bits": ps["sec_bits"] if ps["sec_bits"] is not None else "TBD",
     })
 
 # ---- markdown ----
 hdr = ["Parameter Set", "N", "q", "ceil(log2 q)", "h", "l", "v", "k",
-       "kappa", "beta", "sigma", "M_c", "Security (bits)"]
+       "kappa", "beta", "sigma", "M_z (tag)", "M_c (ring)", "M_total", "Security (bits)"]
 keys = ["set", "N", "q_expr", "log2q", "h", "l", "v", "k", "kappa", "beta",
-        "sigma", "Mc", "sec_bits"]
+        "sigma", "Mz", "Mc", "Mtotal", "sec_bits"]
 md = ["| " + " | ".join(hdr) + " |", "|" + "|".join(["---"] * len(hdr)) + "|"]
 for r in rows:
     md.append("| " + " | ".join(str(r[k]) for k in keys) + " |")
@@ -53,8 +55,11 @@ with open(os.path.join(RESULTS, "table_A_params.md"), "w") as f:
     f.write("Notes: q = %s (prime, == 5 mod 8) reused for all sets; every N is a\n" % q_expr(lrs.Q))
     f.write("power of two, so Lemma 1 (partial splitting of X^N+1, d=2) holds throughout.\n")
     f.write("sigma = alpha * kappa * sqrt(l*N) with alpha = %.0f, so M_c is constant across sets.\n" % lrs.ALPHA)
-    f.write("M_c is the single joint rejection-sampling constant over the stacked response\n")
-    f.write("(z_j || z_c,j); E[attempts per signature] = M_c.\n")
+    f.write("Two INDEPENDENT rejection-sampling loops run per signature (Algorithm 3):\n")
+    f.write("M_z (lines 9-13) guards the linkable tag's response z = y + d*(r1-r2);\n")
+    f.write("M_c (lines 15-21) is the joint rejection constant over the stacked ring\n")
+    f.write("response (z_j || z_c,j). They are sequential and independent, so\n")
+    f.write("E[total attempts per signature] = M_total = M_z + M_c.\n")
     f.write("Security (bits) = TBD: concrete lattice-estimator / Core-SVP evaluation is deferred.\n")
     f.write("All sets satisfy the correctness constraints (q==5 mod 8; M_c > 1, finite).\n")
 

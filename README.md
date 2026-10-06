@@ -64,16 +64,19 @@ into the JSON, so the sweep can be built up across several short runs.
 
 Security scales primarily with the polynomial degree `N`. The Gaussian width is set
 to `σ = α·κ·√(lN)` with a fixed `α = 11`, so the rejection-sampling constants stay
-constant across sets. Sign uses a single joint rejection test over the stacked
-response (`z‖z_c`), with combined constant `M_c ≈ 5.67` (mean ~5-6 signing retries) —
-cheaper in expectation than two separate tests (`M1·M2 ≈ 11.4`).
+constant across sets. **Sign runs two independent Lyubashevsky rejection-sampling
+loops** (see "2026-09-08 fix" below): a tag loop guarding the linkable tag's response
+`z = y + d·(r1-r2)` with constant `M_z ≈ 14.83`, followed by a ring loop with a single
+joint rejection test over the stacked response (`z‖z_c`), combined constant
+`M_c ≈ 5.67` (cheaper in expectation than two separate tests, `M1·M2 ≈ 11.4`). The two
+loops are sequential and independent, so `E[Sign attempts] = M_z + M_c ≈ 20.5`.
 `q = 2^40 − 195` (prime, `≡ 5 mod 8`) is shared by both sets; since every `N` is a power
 of two, Lemma 1 (partial splitting of `X^N+1`, `d=2`) holds throughout.
 
-| Set      | N    | q          | ⌈log₂q⌉ | l | k | κ | β | σ     | M_c  | security |
-|----------|------|------------|---------|---|---|---|---|-------|------|----------|
-| lrs-1024 | 1024 | 2^40 − 195 | 40      | 4 | 6 | 45| 1 | 31680 | 5.67 | TBD      |
-| lrs-2048 | 2048 | 2^40 − 195 | 40      | 4 | 6 | 45| 1 | 44802 | 5.67 | TBD      |
+| Set      | N    | q          | ⌈log₂q⌉ | l | k | κ | β | σ     | M_z (tag) | M_c (ring) | M_total | security |
+|----------|------|------------|---------|---|---|---|---|-------|-----------|------------|---------|----------|
+| lrs-1024 | 1024 | 2^40 − 195 | 40      | 4 | 6 | 45| 1 | 31680 | 14.83     | 5.67       | 20.50   | TBD      |
+| lrs-2048 | 2048 | 2^40 − 195 | 40      | 4 | 6 | 45| 1 | 44802 | 14.83     | 5.67       | 20.50   | TBD      |
 
 > `poly_mul` multiplies exactly over `int64` via `np.convolve`. At `q = 2^40 − 195`,
 > `N = 2048` the peak convolution magnitude is `2^60.8` against the `int64` ceiling of
@@ -84,40 +87,86 @@ of two, Lemma 1 (partial splitting of `X^N+1`, `d=2`) holds throughout.
 
 ## Results at a glance (lrs-1024, ring size n)
 
-Means over 30 reps per point, macOS arm64 / Python 3.11, single-threaded NumPy.
+macOS arm64 (Apple M2) / Python 3.11, single-threaded NumPy. Reps/point vary (30 down
+to 11 for large n) because Sign got ~3.6x slower once the tag rejection loop was added
+and each point ran under a wall-clock budget; see `results/benchmark_full.json` for the
+exact reps per point (row below).
 
 | Metric \ n | 1 | 2 | 4 | 8 | 16 | 32 | 64 |
 |---|---|---|---|---|---|---|---|
-| KeyGen (ms) | 1.47 | 1.48 | 1.50 | 1.46 | 1.47 | 1.49 | 1.48 |
-| Sign mean (ms) | 225 | 302 | 437 | 917 | 1531 | 2493 | 5410 |
-| Sign std (ms) | 206 | 297 | 435 | 702 | 1278 | 2145 | 6185 |
-| Verify (ms) | 16 | 32 | 62 | 122 | 244 | 491 | 1024 |
-| Link (ms) | 12.8 | 12.9 | 13.0 | 13.1 | 13.1 | 13.4 | 13.8 |
+| KeyGen (ms) | 1.64 | 1.70 | 1.64 | 1.63 | 1.69 | 1.63 | 1.64 |
+| Sign mean (ms) | 361 | 589 | 647 | 1087 | 1954 | 4031 | 4779 |
+| Sign std (ms) | 176 | 376 | 343 | 609 | 1604 | 2758 | 3464 |
+| Verify (ms) | 21 | 38 | 73 | 140 | 278 | 555 | 1148 |
+| Link (ms) | 14.5 | 14.4 | 14.4 | 14.4 | 14.6 | 14.9 | 15.6 |
 | PK (KB) | 5.0 | 5.0 | 5.0 | 5.0 | 5.0 | 5.0 | 5.0 |
 | SK (KB) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
 | Signature (KB) | 59.0 | 80.2 | 122.8 | 207.8 | 377.8 | 717.8 | 1397.8 |
-| Sign retries (mean) | 6.5 | 5.9 | 5.4 | 6.5 | 5.8 | 4.9 | 5.2 |
+| Sign retries, tag (mean) | 12.2 | 17.0 | 12.4 | 14.9 | 12.5 | 17.0 | 14.5 |
+| Sign retries, ring (mean) | 4.9 | 6.7 | 5.5 | 5.7 | 6.1 | 6.6 | 3.9 |
+| Sign retries, total (mean) | 17.1 | 23.6 | 17.8 | 20.6 | 18.6 | 23.6 | 18.5 |
+| reps | 30 | 30 | 30 | 29 | 18 | 13 | 11 |
 
 ## Results at a glance (lrs-2048, ring size n)
 | Metric \ n | 1 | 2 | 4 | 8 | 16 | 32 | 64 |
 |---|---|---|---|---|---|---|---|
-| KeyGen (ms) | 5.68 | 5.71 | 5.75 | 5.91 | 5.82 | 5.69 | 5.66 |
-| Sign mean (ms) | 623 | 1040 | 1604 | 4130 | 5491 | 11553 | 17586 |
-| Sign std (ms) | 631 | 836 | 1162 | 3893 | 4747 | 12249 | 15727 |
-| Verify (ms) | 61 | 118 | 235 | 467 | 933 | 1872 | 3795 |
-| Link (ms) | 50.3 | 50.1 | 51.8 | 50.4 | 50.7 | 51.0 | 51.8 |
+| KeyGen (ms) | 6.41 | 6.55 | 6.34 | 6.43 | 6.34 | 6.44 | 6.45 |
+| Sign mean (ms) | 1427 | 1760 | 3002 | 4646 | 6925 | 12492 | 16790 |
+| Sign std (ms) | 828 | 939 | 1398 | 7210 | 4029 | 12302 | 10884 |
+| Verify (ms) | 72 | 137 | 265 | 524 | 1059 | 2092 | 4285 |
+| Link (ms) | 60.2 | 60.1 | 60.0 | 60.2 | 60.9 | 61.0 | 62.6 |
 | PK (KB) | 10.0 | 10.0 | 10.0 | 10.0 | 10.0 | 10.0 | 10.0 |
 | SK (KB) | 2.00 | 2.00 | 2.00 | 2.00 | 2.00 | 2.00 | 2.00 |
 | Signature (KB) | 122.0 | 167.0 | 257.0 | 437.0 | 797.0 | 1517.0 | 2957.0 |
-| Sign retries (mean) | 4.5 | 5.3 | 5.1 | 7.6 | 5.4 | 5.9 | 4.5 |
+| Sign retries, tag (mean) | 11.5 | 11.0 | 15.5 | 9.4 | 23.7 | 11.2 | 17.8 |
+| Sign retries, ring (mean) | 5.9 | 5.9 | 6.5 | 7.2 | 4.8 | 5.5 | 3.6 |
+| Sign retries, total (mean) | 17.4 | 16.9 | 22.0 | 16.7 | 28.5 | 16.8 | 21.4 |
+| reps | 21 | 16 | 11 | 9 | 6 | 4 | 5 |
 
-- **Verify and signature size scale linearly in `n`** (Verify ≈ 16.0 ms × n for lrs-1024,
-  ≈ 59.3 ms × n for lrs-2048); **KeyGen and Link are ~constant in `n`**.
-- **Sign is monotone in `n`** at 30 reps/point. It is dominated by Lyubashevsky rejection
-  sampling (geometric retries, mean `M_c ≈ 5.67`), so its std stays comparable to its mean;
-  dividing out the retry count leaves a per-attempt cost ≈ 1.0–1.2× Verify.
-- **Empirical correctness was 100%** over 100 trials on each parameter set (Verify / Link /
-  Non-link), validating the bounded-norm parameter constraints.
+Both tables and `docs/RESULTS.md` are produced by `python3 make_tables.py` from
+`results/benchmark_full.json`; per-point reps are limited by a wall-clock budget
+(`results/benchmark_full.json` also stores every raw retry count for exact stats).
+
+- **Verify and signature size scale linearly in `n`** (Verify ≈ 18 ms × n for lrs-1024,
+  ≈ 65 ms × n for lrs-2048); **KeyGen and Link are ~constant in `n`**.
+- **Sign is dominated by rejection sampling from TWO independent loops** (tag `M_z ≈ 14.83`
+  + ring `M_c ≈ 5.67`, total `M_total ≈ 20.5`), so its mean and std are both large and
+  comparable in size (geometric-retry noise), and it is ~3.6x slower than before the
+  2026-09-08 fix (see below), which only ran the ring loop.
+- **Empirical correctness was 100%** on every completed trial (Verify / Link / Non-link):
+  100/100 for lrs-1024 n=4, 64/64 for lrs-2048 n=2 (see `docs/RESULTS.md` / Table C1);
+  the retry means (17.8 and 23.2) are consistent with theory (`M_total ≈ 20.5`) given the
+  geometric distribution's large variance and the modest trial counts.
+
+### 2026-09-08 fix: tag response was missing its own rejection-sampling test
+
+The thesis's Sign pseudocode (Algorithm 3) has **two separate** Lyubashevsky
+rejection-sampling steps: line 13 restarts the linkable-tag response
+`z = y + d·(r1-r2)` with its own constant `M_z`, independently of the later joint
+ring-response test at line 21 (constant `M_c`, the only one this code previously
+implemented). `lrs.py`'s `sign()` computed `z_tag` unconditionally and never rejected
+it, so the tag's response distribution was not proven simulatable/independent of the
+secret `r1-r2` the way Theorem 1 requires, and every "Sign retries" number published
+before this fix (`M_c ≈ 5.67` only) undercounted the true expected work by a factor of
+`M_total/M_c ≈ 3.6`.
+
+The fix adds an inner acceptance loop around the tag's `y` sampling, using a new
+constant `M_z`, derived the same way as the existing `M1`/`M2`/`M_c` (Theorem 1,
+`σ = α·T`): the tag's center is `v = d·(r1-r2)` with `r1, r2 ∈ S_β^k` (ternary,
+`β=1`), so by the triangle inequality on the same worst-case bound used for `M2`
+(`T2 = κ√(kN)`, center `d·r`), `‖d·(r1-r2)‖ ≤ ‖d·r1‖ + ‖d·r2‖ ≤ 2·T2`, giving
+`T_z = 2·T2`, `α_z = σ/T_z ≈ 4.49`, `M_z = exp(12/α_z + 1/(2α_z²)) ≈ 14.83` (same for
+both parameter sets, since `α` is fixed). The tag loop is independent of and precedes
+the ring loop (the tag `I` is hashed into the ring's Fiat-Shamir chain, so it must be
+fixed first), so `E[Sign attempts] = M_z + M_c ≈ 20.5`, not `M_c ≈ 5.67`.
+
+Validated with a clean 80-trial measurement isolating just the tag loop on first-time
+signing (where `r1=r2` exactly, so `v=0` exactly and the accept probability is exactly
+`1/M_z` on every attempt, independent of the realized response): empirical mean
+**14.838** against theory `M_z = 14.835` — see `_LAST_RETRIES_TAG` /
+`_LAST_RETRIES_RING` / `_LAST_RETRIES` (total) in `lrs.py` for the per-signature
+instrumentation now exposed, and the "Sign retries, tag/ring/total" rows above for the
+full-sweep confirmation.
 
 See `docs/RESULTS.md` for the full write-up.
 

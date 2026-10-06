@@ -53,13 +53,14 @@ PARAM_SETS = {
 # below so existing scripts that `import lrs` keep working unchanged.
 N = Q = QH = H_DIM = L_DIM = V_DIM = K_DIM = KAPPA = BETA = SIGMA = None
 T1 = T2 = A1 = A2 = M1 = M2 = None
-TC = AC = MC = None   # combined (stacked l+k) rejection constants
+TC = AC = MC = None   # combined (stacked l+k) rejection constants for the ring response (z_j || z_c,j)
+TZ = AZ = MZ = None   # tag-response rejection constant (Algorithm 3 line 13): center v = d*(r1-r2)
 PARAM_NAME = None
 
 def set_params(name):
     """Rebind module-level parameter globals to the named set in PARAM_SETS."""
     global N, Q, QH, H_DIM, L_DIM, V_DIM, K_DIM, KAPPA, BETA, SIGMA
-    global T1, T2, A1, A2, M1, M2, TC, AC, MC, PARAM_NAME
+    global T1, T2, A1, A2, M1, M2, TC, AC, MC, TZ, AZ, MZ, PARAM_NAME
     ps = PARAM_SETS[name] if isinstance(name, str) else name
     PARAM_NAME = name if isinstance(name, str) else "custom"
     N = ps["N"]; Q = ps["Q"]
@@ -82,6 +83,15 @@ def set_params(name):
     TC = KAPPA * np.sqrt((L_DIM + K_DIM) * N)
     AC = SIGMA / TC
     MC = np.exp(12.0 / AC + 1.0 / (2 * AC * AC))
+    # tag-response rejection constant M_z (thesis Algorithm 3, line 13): the
+    # linkable tag's response z = y + d*(r1 - r2) needs ITS OWN independent
+    # Lyubashevsky rejection test, separate from the ring's M_c test above.
+    # Center v = d*(r1 - r2) with r1, r2 in S_beta^k (ternary); by the
+    # triangle inequality on the same worst-case bound used for T2 (center
+    # d*r, single r in S_beta^k), ||d*(r1-r2)|| <= ||d*r1|| + ||d*r2|| <= 2*T2.
+    TZ = 2.0 * T2
+    AZ = SIGMA / TZ
+    MZ = np.exp(12.0 / AZ + 1.0 / (2 * AZ * AZ))
     _check_int64_headroom()
 
 def _check_int64_headroom():
@@ -275,12 +285,28 @@ def _rej_accept(z_polys, v_polys, sigma, M):
     val = np.exp((-2.0 * inner + nv2) / (2.0 * sigma * sigma)) / M
     return _rng.random() < min(1.0, val)
 
-# instrumentation: number of rejection-sampling attempts used by the last sign()
-_LAST_RETRIES = 0
+# instrumentation: rejection-sampling attempt counts used by the last sign()
+_LAST_RETRIES = 0        # total = tag attempts + ring attempts
+_LAST_RETRIES_TAG = 0    # Algorithm 3 lines 9-13: tag response z = y + d*(r1-r2)
+_LAST_RETRIES_RING = 0   # Algorithm 3 lines 15-21: joint ring response (z_j||z_c,j)
 
-def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=400):
-    """Algorithm 3.  L is list of public keys (each a vec of h polys)."""
-    global _LAST_RETRIES
+def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=2000):
+    """Algorithm 3.  L is list of public keys (each a vec of h polys).
+
+    Two INDEPENDENT Lyubashevsky rejection-sampling loops, matching the
+    thesis pseudocode:
+      (1) tag loop (lines 9-13): resample y until the tag response
+          z = y + d*(r1-r2) is accepted (own constant M_z -- line 13's
+          "Restart with probability ..."); this fixes the linkable tag
+          I = (z, d, c) once.
+      (2) ring loop (lines 15-21): using the now-fixed I (it is hashed into
+          the AOS chain, so it must be fixed before the chain is built),
+          resample (u, u_c) and rebuild the ring chain until the joint
+          response (z_j || z_c,j) is accepted (constant M_c).
+    A failure in loop (2) only redoes the ring, not the tag -- the tag never
+    needs to change once accepted.  Expected total attempts E[Sign] = M_z + M_c.
+    """
+    global _LAST_RETRIES, _LAST_RETRIES_TAG, _LAST_RETRIES_RING
     rng = rng or _rng
     n = len(L)
     j = signer_index
@@ -296,17 +322,25 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=400):
         r2 = H_ternary(_vecbytes(sk), m, _vecbytes(*L))
         new_state = state
     c1, c2 = commit(pp, sk, r2)                       # c = Com(sk; r2)
+    r_diff = vec_sub(r1, r2)
 
-    for _attempt in range(_max_retry):
+    # ---- (1) tag rejection sampling (Algorithm 3, lines 9-13) --------------
+    for _tag_attempt in range(_max_retry):
         y = sample_gaussian_vec(rng, K_DIM)
         B1y = matvec(pp["B1"], y)
         B2y = matvec(pp["B2"], y)
         d_tag = tag_challenge(B1y, B2y, c1, c2, m, L)
-        r_diff = vec_sub(r1, r2)
         z_tag = vec_add(y, scalar_vec(d_tag, r_diff))   # = y when r1=r2
-        I = {"z": z_tag, "d": d_tag, "c1": c1, "c2": c2}
+        v_tag = scalar_vec(d_tag, r_diff)
+        if _rej_accept(z_tag, v_tag, SIGMA, MZ):
+            break
+    else:
+        raise RuntimeError("tag signing exceeded retry budget")
+    _LAST_RETRIES_TAG = _tag_attempt + 1
+    I = {"z": z_tag, "d": d_tag, "c1": c1, "c2": c2}
 
-        # ---- ring (AOS chaining) -------------------------------------------
+    # ---- (2) ring (AOS chaining) rejection sampling (lines 15-21) ----------
+    for _attempt in range(_max_retry):
         u   = sample_gaussian_vec(rng, L_DIM)
         u_c = sample_gaussian_vec(rng, K_DIM)
         d = [None] * n
@@ -342,7 +376,8 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=400):
             continue
 
         sig = {"d1": d[0], "z": z, "z_c": z_c, "I": I}
-        _LAST_RETRIES = _attempt + 1   # total attempts incl. the accepted one
+        _LAST_RETRIES_RING = _attempt + 1   # ring attempts incl. the accepted one
+        _LAST_RETRIES = _LAST_RETRIES_TAG + _LAST_RETRIES_RING
         return sig, new_state
     raise RuntimeError("signing exceeded retry budget")
 
@@ -353,14 +388,26 @@ def _norm2(polys):
     z = np.concatenate([np.asarray(p, dtype=np.float64) for p in polys])
     return float(np.sqrt(np.dot(z, z)))
 
+def _verify_tag_check(sig):
+    """Algorithm 4 line 2 alone (for cost breakdown)."""
+    bound_tag = 2 * SIGMA * np.sqrt(N)
+    return all(_norm2([zi]) <= bound_tag for zi in sig["I"]["z"])
+
 def verify(pp, m, L, sig):
+    """Algorithm 4 (Verify)."""
     n = len(L)
+    I = sig["I"]
+    # line 2: tag response z = (z^(1),...,z^(k)); each ||z^(i)||_2 <= 2*sigma*sqrt(N)
+    bound_tag = 2 * SIGMA * np.sqrt(N)
+    for zi in I["z"]:
+        if _norm2([zi]) > bound_tag: return 0
+    # line 3: ring responses
     bound_z   = 2 * SIGMA * np.sqrt(L_DIM * N)
     bound_zc  = 2 * SIGMA * np.sqrt(K_DIM * N)
     for i in range(n):
         if _norm2(sig["z"][i]) > bound_z:   return 0
         if _norm2(sig["z_c"][i]) > bound_zc: return 0
-    I = sig["I"]
+    # line 4: recompute the ring chain
     c1, c2 = I["c1"], I["c2"]
     e = sig["d1"]
     for i in range(n):
@@ -381,7 +428,8 @@ def _link_branch(pp, carrier, other, m_carrier, L_carrier, bound):
     c1, c2 = carrier["c1"], carrier["c2"]
     co1, co2 = other["c1"], other["c2"]
     z, d = carrier["z"], carrier["d"]
-    if _norm2(z) > bound:
+    # Algorithm 5 line 8/9: per-component bound ||z^(i)||_2 <= 2*sigma*sqrt(N), i in [k]
+    if any(_norm2([zi]) > bound for zi in z):
         return False
     d1 = vec_sub(co1, c1)          # delta = c_other - c_carrier
     d2 = vec_sub(co2, c2)
@@ -396,7 +444,7 @@ def link(pp, m, mp, L, Lp, sig, sigp):
     The signing order is unknown, so we test both assignments of which tag is
     the difference-carrying (second) signature.
     """
-    bound = 2 * SIGMA * np.sqrt(K_DIM * N)
+    bound = 2 * SIGMA * np.sqrt(N)          # per-component (Algorithm 5 line 8)
     I, Ip = sig["I"], sigp["I"]
     if _link_branch(pp, Ip, I, mp, Lp, bound):   # sigp is the 2nd signature
         return 1

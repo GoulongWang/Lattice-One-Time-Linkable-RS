@@ -12,7 +12,9 @@
     "kappa": 45,
     "beta": 1,
     "sigma": 31680,
+    "Mz": 14.835,
     "Mc": 5.67,
+    "Mtotal": 20.505,
     "constraints_ok": true,
     "sec_bits": "TBD"
   },
@@ -29,7 +31,9 @@
     "kappa": 45,
     "beta": 1,
     "sigma": 44802,
+    "Mz": 14.835,
     "Mc": 5.67,
+    "Mtotal": 20.505,
     "constraints_ok": true,
     "sec_bits": "TBD"
   }

@@ -22,9 +22,12 @@ os.makedirs("results", exist_ok=True)
 param = sys.argv[1]
 n     = int(sys.argv[2])
 reps  = int(sys.argv[3]) if len(sys.argv) > 3 else 8
-BUDGET_S = float("inf")
+BUDGET_S = float(sys.argv[4]) if len(sys.argv) > 4 else float("inf")
 KG_REPS   = 15
 LINK_REPS = 50
+MIN_REPS_BEFORE_BUDGET_CHECK = 1   # was 3; Sign got much slower once the tag
+                                    # rejection loop (M_z) was added, so a slow
+                                    # point should be able to stop after 1 rep.
 OUT = "results/benchmark_full.json"
 
 lrs.set_params(param)
@@ -46,7 +49,7 @@ pk, sk, st = keys[0]
 # Sign loop threads the signer state so the timed signatures form a same-signer
 # chain (msg differs each rep); the first two are reused for the Link benchmark,
 # so Link costs no extra (expensive) signing.
-sign_t, ver_t, retries = [], [], []
+sign_t, ver_t, retries, retries_tag, retries_ring = [], [], [], [], []
 chain = []          # (msg, sig) for the same signer, state-chained
 state = None
 loop_start = time.perf_counter()
@@ -54,11 +57,14 @@ for r in range(reps):
     msg = f"bm-{param}-{n}-{r}".encode()
     s = time.perf_counter(); sig, state = lrs.sign(pp, msg, L, sk, state, 0); sign_t.append((time.perf_counter() - s) * 1e3)
     retries.append(lrs._LAST_RETRIES)
+    retries_tag.append(lrs._LAST_RETRIES_TAG)
+    retries_ring.append(lrs._LAST_RETRIES_RING)
     s = time.perf_counter(); v = lrs.verify(pp, msg, L, sig); ver_t.append((time.perf_counter() - s) * 1e3)
     assert v == 1, "benchmark signature failed to verify"
     chain.append((msg, sig))
-    print(f"  {param} n={n} rep {r+1}/{reps}  sign={sign_t[-1]:8.1f}ms  verify={ver_t[-1]:7.1f}ms  retries={retries[-1]}", flush=True)
-    if r + 1 >= 3 and (time.perf_counter() - loop_start) > BUDGET_S:
+    print(f"  {param} n={n} rep {r+1}/{reps}  sign={sign_t[-1]:8.1f}ms  verify={ver_t[-1]:7.1f}ms  "
+          f"retries={retries[-1]} (tag={retries_tag[-1]} ring={retries_ring[-1]})", flush=True)
+    if r + 1 >= MIN_REPS_BEFORE_BUDGET_CHECK and (time.perf_counter() - loop_start) > BUDGET_S:
         print(f"  [time budget {BUDGET_S}s reached after {r+1} reps -- stopping early]", flush=True)
         break
 
@@ -90,6 +96,8 @@ entry = {
     "verify_ms": vf_m, "verify_median": vf_md, "verify_std": vf_s,
     "link_ms":   lk_m, "link_median":   lk_md, "link_std":   lk_s,
     "retries_mean": float(np.mean(retries)),
+    "retries_tag_mean": float(np.mean(retries_tag)),
+    "retries_ring_mean": float(np.mean(retries_ring)),
     "retries_all": retries,
     "log2q": int(np.ceil(np.log2(lrs.Q))),
     "pk_kb":  pkb / 8 / 1024,
