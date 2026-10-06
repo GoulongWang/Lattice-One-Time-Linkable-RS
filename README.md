@@ -13,10 +13,9 @@
 
 ```
 lrs.py                  方案實作：Setup / KeyGen / Sign / Verify / Link、環運算、參數集
-test_correctness.py     正確性 sanity check（~30 秒，改完程式先跑這個）
+test_correctness.py     正確性檢查（兩組參數集各四項，~50 秒，改完程式先跑這個）
 
 param_table.py          參數集與拒絕取樣常數（對應論文的參數表）
-correctness_gate.py     經驗正確性閘門（Sign→Verify→Link 多次試驗）
 bench_scaling.py        效能量測：對各環大小 n 計時（可續跑）
 analyze_scaling.py      彙總量測結果：各演算法平均、Sign 標準差、重試次數
 make_perf_table.py      效能表（LaTeX，可 \input 進論文）
@@ -78,9 +77,7 @@ python3 param_table.py          # → params.{md,json}          （純參數，�
 **先跑正確性檢查**，再花時間量測：
 
 ```bash
-python3 test_correctness.py                      # ~30 秒
-python3 correctness_gate.py lrs-1024 4 100 99999 # <參數集> <n> [次數] [時間預算秒]
-python3 correctness_gate.py lrs-2048 2 100 99999 # → results/correctness_results.json（不進版控）
+python3 test_correctness.py     # ~50 秒，lrs-1024 與 lrs-2048 都驗
 ```
 
 效能量測可續跑——每簽完一次就存檔，超過時間預算就停，再執行一次會從停的地方接下去：
