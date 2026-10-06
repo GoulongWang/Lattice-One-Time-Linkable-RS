@@ -1,6 +1,8 @@
-"""Thesis Tables 4 & 5 (powers-of-two n) from results/rerun_summary.json -> results/table4_5.tex"""
+"""Performance tables (powers-of-two n) from results/scaling_summary.json -> results/performance.tex
+
+One LaTeX table per parameter set, ready to \input into the thesis."""
 import json
-S = json.load(open("results/rerun_summary.json")); POW2 = [1, 2, 4, 8, 16, 32, 64]
+S = json.load(open("results/scaling_summary.json")); POW2 = [1, 2, 4, 8, 16, 32, 64]
 out = []
 for tno, p in ((4, "lrs-1024"), (5, "lrs-2048")):
     s = S[p]; ix = [s["n"].index(n) for n in POW2]
@@ -14,4 +16,4 @@ for tno, p in ((4, "lrs-1024"), (5, "lrs-2048")):
             row("Signature (KB)", s["sig_kb"], "{:.1f}"),
             r"    \bottomrule", r"  \end{tabular}", rf"  \caption{{參數集 {p} 實驗結果}}",
             rf"  \label{{tab:result-{p}}}", r"\end{table}", ""]
-open("results/table4_5.tex", "w").write("\n".join(out)); print("\n".join(out))
+open("results/performance.tex", "w").write("\n".join(out)); print("\n".join(out))

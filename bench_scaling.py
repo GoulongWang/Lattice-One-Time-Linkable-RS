@@ -4,16 +4,16 @@
 Adds evenly spaced ring sizes so linearity in n can be shown on a LINEAR axis.
 
 Each invocation works through the job queue until --budget seconds elapse, saving
-raw timings after every rep to results/rerun_raw.json (so it can be called
+raw timings after every rep to results/scaling_raw.json (so it can be called
 repeatedly; it resumes where it stopped).
 
-Usage: python3 bench_rerun.py [budget_seconds]
+Usage: python3 bench_scaling.py [budget_seconds]
 """
 import sys, time, json, os, platform
 import numpy as np
 import lrs
 
-RAW = "results/rerun_raw.json"
+RAW = "results/scaling_raw.json"
 NS = [1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
 PARAMS = ["lrs-1024", "lrs-2048"]
 _SR = {"lrs-1024": 30, "lrs-2048": 20}

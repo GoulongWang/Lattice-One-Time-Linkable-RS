@@ -1,9 +1,12 @@
-"""Analyse results/rerun_raw.json: tables, linear fits (R^2), log-log slopes, figure
-with LINEAR n axis.  Writes results/rerun_summary.{json,md}, results/fig6_3_linear.{png,pdf}."""
+"""Analyse results/scaling_raw.json: tables, linear fits (R^2), log-log slopes, and a
+figure with a LINEAR ring-size axis.
+
+Writes results/scaling_summary.{json,md} and results/scaling_linear.{png,pdf}.
+scaling_summary.json is the interface the table and figure scripts read."""
 import json, numpy as np, matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt, matplotlib.font_manager as fm
-D = json.load(open("results/rerun_raw.json"))["points"]
+D = json.load(open("results/scaling_raw.json"))["points"]
 PARAMS = ["lrs-1024", "lrs-2048"]
 NS = sorted({v["n"] for v in D.values()})
 DOUBLING = [1, 2, 4, 8, 16, 32, 64]
@@ -56,8 +59,8 @@ for p in PARAMS:
            f"- Sign 逐次模型 t = {coef[0]:.1f}·(tag 次數) + ({coef[1]:.1f} + {coef[2]:.2f}·n)·(ring 次數) ms，{len(Y)} 筆單次簽章 R² = {raw_r2:.4f}（實測平均的波動來自重試次數 ~ Geom(1/M)）",
            f"- Signature ≈ {F['sig_kb']['a']:.1f} + {F['sig_kb']['b']:.2f}·n KB，R² = {F['sig_kb']['R2']:.6f}",
            f"- 平均重試：tag {np.mean(S[p]['retries_tag']):.2f}（M_z={Mz:.2f}），ring {np.mean(S[p]['retries_ring']):.2f}（M_c={Mc:.2f}）"]
-json.dump(S, open("results/rerun_summary.json", "w"), indent=1, default=float)
-open("results/rerun_summary.md", "w").write("# 重跑實驗結果（Verify 含演算法 4 第 2 行）\n" + "\n".join(md) + "\n")
+json.dump(S, open("results/scaling_summary.json", "w"), indent=1, default=float)
+open("results/scaling_summary.md", "w").write("# 重跑實驗結果（Verify 含演算法 4 第 2 行）\n" + "\n".join(md) + "\n")
 
 KAI = ["BiauKaiTC", "BiauKaiHK", "DFKai-SB", "Kaiti TC", "STKaiti", "Kaiti SC", "Noto Sans CJK TC", "Noto Sans CJK JP"]
 avail = {f.name for f in fm.fontManager.ttflist}; pick = next((f for f in KAI if f in avail), None)
@@ -77,5 +80,5 @@ for ax, p in zip(axes, PARAMS):
     ax.set_xlim(0, 66); ax.set_ylim(bottom=0); ax.set_xticks([1, 8, 16, 24, 32, 40, 48, 56, 64])
     ax.set_xlabel("環成員人數 n（線性刻度）"); ax.set_ylabel("執行時間 (s)")
     ax.set_title(f"各演算法執行時間（{p}）"); ax.grid(True, ls=":", alpha=.5); ax.legend(fontsize=8)
-fig.tight_layout(); fig.savefig("results/fig6_3_linear.png", dpi=200); fig.savefig("results/fig6_3_linear.pdf")
-print(open("results/rerun_summary.md").read()); print("font:", pick)
+fig.tight_layout(); fig.savefig("results/scaling_linear.png", dpi=200); fig.savefig("results/scaling_linear.pdf")
+print(open("results/scaling_summary.md").read()); print("font:", pick)

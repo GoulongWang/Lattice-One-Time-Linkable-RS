@@ -15,3 +15,15 @@ _t/
 
 .venv
 .claude/
+# Generated from results/scaling_raw.json + results/correctness_results.json.
+# Only the raw measurements are tracked; everything below is rebuilt by running
+# the scripts (see README). Keeping copies here is how they go stale.
+results/scaling_summary.json
+results/scaling_summary.md
+results/scaling_linear.png
+results/scaling_linear.pdf
+results/performance.tex
+results/performance_figure.png
+results/performance_figure.pdf
+results/table_A_params.json
+results/table_A_params.md
