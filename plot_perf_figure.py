@@ -1,5 +1,5 @@
-"""Thesis Figure 7 (same style as make_tables.py) redrawn from the re-run data
-(results/rerun_summary.json), with a LINEAR ring-size axis."""
+"""Performance figure: per-algorithm running time against ring size, drawn from
+results/scaling_summary.json with a LINEAR ring-size axis, in the thesis fonts."""
 import json
 import matplotlib
 matplotlib.use("Agg")
@@ -27,7 +27,7 @@ plt.rcParams["mathtext.fontset"] = "stix"
 pick = f"Times New Roman + {KAI}"
 plt.rcParams["axes.unicode_minus"] = False
 
-S = json.load(open("results/rerun_summary.json"))
+S = json.load(open("results/scaling_summary.json"))
 POW2 = [1, 2, 4, 8, 16, 32, 64]
 fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
 for ax, param in zip(axes, ("lrs-1024", "lrs-2048")):
@@ -44,5 +44,5 @@ for ax, param in zip(axes, ("lrs-1024", "lrs-2048")):
     ax.set_title(f"LRS 各演算法執行時間（{param}）")
     ax.legend(); ax.grid(True, which="both", ls=":", alpha=0.5)
 fig.tight_layout()
-fig.savefig("results/fig7_linear.png", dpi=200); fig.savefig("results/fig7_linear.pdf")
-print("font:", pick, "-> results/fig7_linear.png / .pdf")
+fig.savefig("results/performance_figure.png", dpi=200); fig.savefig("results/performance_figure.pdf")
+print("font:", pick, "-> results/performance_figure.png / .pdf")
