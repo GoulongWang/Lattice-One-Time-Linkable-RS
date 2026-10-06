@@ -1,7 +1,9 @@
-"""Resumable full re-run of Experiment B (ring-size scaling) after:
-  * Verify: Algorithm 4 line 2 tag-response check ||z^(i)||_2 <= 2*sigma*sqrt(N)
-  * Link:   Algorithm 5 line 8/9 per-component bound
-Adds evenly spaced ring sizes so linearity in n can be shown on a LINEAR axis.
+"""Resumable timing sweep over ring sizes: KeyGen / Sign / Verify / Link.
+
+Ring sizes are the powers of two the thesis table and figure report. Evenly
+spaced sizes (24, 40, 48, 56) used to be measured as well, to support a linear
+fit in n; that fit is no longer reported anywhere, and those points cost more
+than half the sweep, so they are gone.
 
 Each invocation works through the job queue until --budget seconds elapse, saving
 raw timings after every rep to results/scaling_raw.json (so it can be called
@@ -14,13 +16,10 @@ import numpy as np
 import lrs
 
 RAW = "results/scaling_raw.json"
-NS = [1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64]
+NS = [1, 2, 4, 8, 16, 32, 64]
 PARAMS = ["lrs-1024", "lrs-2048"]
 _SR = {"lrs-1024": 30, "lrs-2048": 20}
-class _Reps(dict):   # lrs-2048 large rings: 12 signatures (time-bounded device runs)
-    def __getitem__(self, k): return _SR[k]
-SIGN_REPS = _Reps()
-def sign_reps(param, n):
+def sign_reps(param, n):   # lrs-2048 large rings cost ~10 s per signature, so fewer reps
     if param == "lrs-2048" and n >= 56: return 8
     return 12 if (param == "lrs-2048" and n >= 24) else _SR[param]
 VERIFY_REPS = 30      # timed on each produced signature, cycled
@@ -54,7 +53,7 @@ for param in PARAMS:
     for n in NS:
         P = data["points"].setdefault(f"{param}:{n}", {
             "param": param, "n": n, "keygen": [], "sign": [], "retries_tag": [],
-            "retries_ring": [], "verify": [], "verify_tagcheck": [], "link": [],
+            "retries_ring": [], "verify": [], "link": [],
             "state": None, "chain": 0})
         if len(P["sign"]) >= sign_reps(param, n) and len(P["link"]) >= LINK_REPS:
             continue
@@ -78,8 +77,6 @@ for param in PARAMS:
             vs = []
             for _ in range(max(1, VERIFY_REPS // sign_reps(param, n) + 1)):
                 v, tv = ms(lambda: lrs.verify(pp, msg, L, sig)); assert v == 1; vs.append(tv)
-                _, tc = ms(lambda: lrs._verify_tag_check(sig))
-                P["verify_tagcheck"].append(tc)
             P["verify"].extend(vs)
             save()
         if len(P["sign"]) < sign_reps(param, n):
