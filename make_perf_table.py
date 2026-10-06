@@ -4,9 +4,10 @@ One LaTeX table per parameter set, ready to \input into the thesis."""
 import json
 S = json.load(open("results/scaling_summary.json")); POW2 = [1, 2, 4, 8, 16, 32, 64]
 out = []
-for tno, p in ((4, "lrs-1024"), (5, "lrs-2048")):
-    s = S[p]; ix = [s["n"].index(n) for n in POW2]
-    row = lambda lab, v, f: f"    {lab} & " + " & ".join(f.format(v[i]) for i in ix) + r" \\"
+for p in ("lrs-1024", "lrs-2048"):
+    s = S[p]
+    assert s["n"] == POW2, f"{p}: measured ring sizes {s['n']} != the ones the thesis reports {POW2}"
+    row = lambda lab, v, f: f"    {lab} & " + " & ".join(f.format(x) for x in v) + r" \\"
     out += [r"\begin{table}[ht]", r"  \centering", r"  \begin{tabular}{l" + "r" * 7 + "}", r"    \toprule",
             r"    $n$ & " + " & ".join(map(str, POW2)) + r" \\", r"    \midrule",
             row("KeyGen (ms)", s["keygen"], "{:.2f}"), row("Sign (ms)", s["sign"], "{:.0f}"),

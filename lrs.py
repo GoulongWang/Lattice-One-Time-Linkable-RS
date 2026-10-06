@@ -4,7 +4,7 @@ Linkable Ring Signature from the thesis:
     "Post-Quantum Linkable Ring Signatures Based on Lattice" (Guolong Wang, NCCU).
 
 Implements Setup / KeyGen / Sign / Verify / Link (Algorithms 1-5) over
-R_q = Z_q[X]/(X^N + 1) with the parameter set fixed in the thesis (Table 2):
+R_q = Z_q[X]/(X^N + 1) with the parameter set fixed in the thesis parameter table:
 
     q ~ 2^32 (prime, q = 5 mod 8 so Lemma 1 holds with d=2)
     N = 1024,  h = 1,  l = 4,  v = 1,  k = 6
@@ -28,7 +28,7 @@ import time
 # sets at different N; the Gaussian width sigma is scaled as alpha * kappa *
 # sqrt(l*N) with a FIXED alpha so the rejection constants M1, M2 stay constant
 # across sets (well-behaved retry count).  alpha = 11 reproduces the thesis
-# Table-2 value sigma = 31680 at N = 1024.
+# published value sigma = 31680 at N = 1024.
 #
 # q = 2^40 - 195 is prime and == 5 (mod 8); since every N here is a power of two,
 # Lemma 1 (partial splitting of X^N+1, d=2) holds for all sets with this q, so a
@@ -43,7 +43,7 @@ def _make_set(N, l=4, k=6, h=1, v=1, kappa=45, beta=1, q=Q_DEFAULT, alpha=ALPHA)
             "KAPPA": kappa, "BETA": beta, "SIGMA": float(sigma), "sec_bits": None}
 
 PARAM_SETS = {
-    # thesis Table-2 baseline (sigma rounds to the published 31680)
+    # thesis parameter-table baseline (sigma rounds to the published 31680)
     "lrs-1024":   _make_set(N=1024),
     # higher-security set
     "lrs-2048":   _make_set(N=2048),
@@ -112,7 +112,7 @@ def _check_int64_headroom():
               "Exact integer arithmetic may silently overflow -- widen the "
               "accumulator or lower q/N." % (PARAM_NAME, np.log2(est)))
 
-set_params("lrs-1024")  # default: thesis Table-2 baseline (backward compatible)
+set_params("lrs-1024")  # default: the thesis parameter-table baseline (backward compatible)
 
 # ----------------------------------------------------------------------------
 # Ring arithmetic over R_q = Z_q[X]/(X^N + 1).  A polynomial is an int64[N].
@@ -448,7 +448,7 @@ def link(pp, m, mp, L, Lp, sig, sigp):
     return 0
 
 # ----------------------------------------------------------------------------
-# Size accounting (bits) — matches thesis Table 3 formula
+# Size accounting (bits) — matches the thesis signature-size formula
 # ----------------------------------------------------------------------------
 def sizes_bits(n):
     logq      = int(np.ceil(np.log2(Q)))           # ~32

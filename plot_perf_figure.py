@@ -32,8 +32,8 @@ POW2 = [1, 2, 4, 8, 16, 32, 64]
 fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
 for ax, param in zip(axes, ("lrs-1024", "lrs-2048")):
     s = S[param]
-    idx = [i for i, n in enumerate(s["n"]) if n in POW2]          # powers of two only
-    ns = [s["n"][i] for i in idx]; g = lambda k: [s[k][i] for i in idx]
+    assert s["n"] == POW2, f"{param}: measured ring sizes {s['n']} != the ones the thesis reports {POW2}"
+    ns = s["n"]; g = lambda k: s[k]
     ax.plot(ns, g("sign"),   "o-", color="C1", label="Sign")
     ax.plot(ns, g("verify"), "s-", color="C2", label="Verify")
     ax.plot(ns, g("link"),   "^-", color="C3", label="Link")
