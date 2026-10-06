@@ -42,9 +42,21 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt     # numpy, matplotlib
 ```
 
-只有 `plot_perf_figure.py` 需要論文字型（Times New Roman + 標楷體），找不到會直接 assert 失敗，
-並印出它找過的路徑。macOS 把標楷體放在系統的 downloadable asset 裡，所以腳本有明確註冊字型檔。
-在沒有這些字型的機器上，其餘三支腳本照跑不誤——數字都在 `scaling_summary.md` 和 `performance.tex` 裡。
+只有 `plot_perf_figure.py` 需要論文字型（Times New Roman + 標楷體），找不到會直接停下來，
+並列出它找過的**每一條路徑**與各自有沒有命中。macOS 把標楷體放在系統的 downloadable asset 裡，
+所以腳本有明確註冊字型檔。在沒有這些字型的機器上，其餘三支腳本照跑不誤——
+數字都在 `scaling_summary.md` 和 `performance.tex` 裡。
+
+**腳本刻意不退回其他字型。** 論文格式規定中文用標楷體，換字型畫出來的圖本來就不能放進論文；
+生一張看起來沒問題、實際上用不了的圖，比直接擋下來更糟。字型怎麼補：
+
+| 平台 | Times New Roman | 標楷體 |
+|---|---|---|
+| macOS | 系統內建 | 開「字體簿」搜尋「標楷體」按下載 |
+| Windows | 系統內建 | 系統內建 DFKai-SB |
+| Linux | 裝 `ttf-mscorefonts-installer` | 沒有，須從 macOS/Windows 複製字型檔過來 |
+
+複製來的字型檔放到錯誤訊息列出的任一路徑即可（例如 `~/fonts/BiauKaiTC.ttf`）。
 
 ---
 
