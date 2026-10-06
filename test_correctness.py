@@ -5,7 +5,6 @@ rng = np.random.default_rng(12345)
 lrs._rng = np.random.default_rng(999)
 
 # print(f"q = {lrs.Q}  (q mod 8 = {lrs.Q % 8}),  N = {lrs.N}")
-# print(f"M1 = {lrs.M1:.3f}  M2 = {lrs.M2:.3f}  (期望 Retry 次數約 M1 * M2 = {lrs.M1*lrs.M2:.1f})\n")
 
 pp = lrs.setup(rng)
 n = 5

@@ -15,7 +15,7 @@
 lrs.py                  方案實作：Setup / KeyGen / Sign / Verify / Link、環運算、參數集
 test_correctness.py     正確性 sanity check（~30 秒，改完程式先跑這個）
 
-param_table.py          參數集與拒絕取樣常數
+param_table.py          參數集與拒絕取樣常數（對應論文的參數表）
 correctness_gate.py     經驗正確性閘門（Sign→Verify→Link 多次試驗）
 bench_scaling.py        效能量測：對各環大小 n 計時（可續跑）
 analyze_scaling.py      彙總量測結果：各演算法平均、Sign 標準差、重試次數
@@ -68,7 +68,7 @@ pip install -r requirements.txt     # numpy, matplotlib
 python3 analyze_scaling.py      # → scaling_summary.{json,md}
 python3 make_perf_table.py      # → performance.tex          （讀 scaling_summary.json）
 python3 plot_perf_figure.py     # → performance_figure.png（讀 scaling_summary.json）
-python3 param_table.py          # → table_A_params.{md,json}  （純參數，不含量測）
+python3 param_table.py          # → params.{md,json}          （純參數，不含量測）
 ```
 
 `analyze_scaling.py` 必須先跑，另外兩支讀它產生的 `scaling_summary.json`。
@@ -108,7 +108,7 @@ python3 bench_scaling.py 600     # 接續
 | `keygen` / `sign` / `verify` / `link` | 每次計時的陣列（ms） |
 | `retries_tag` / `retries_ring` | 每次簽章的兩種拒絕取樣次數 |
 | `pk_kb` / `sk_kb` / `sig_kb` | 金鑰與簽章大小 |
-| `Mz` / `Mc` | 該參數集的理論拒絕取樣常數 |
+| `Mz` / `M` | 該參數集的理論拒絕取樣常數（論文參數表的 M_z 與 M） |
 
 頂層另有 `env` / `python` / `numpy` 記錄量測環境。
 
@@ -152,10 +152,10 @@ lrs-2048 大 n 的次數較少是因為單次簽章要十幾秒。實際次數�
 確切環境記在 `scaling_raw.json` 的 `env` 欄位。
 
 **5. 簽章有兩個獨立的拒絕取樣迴圈，不要只實作一個。**
-這是曾經出過的錯：原本的 `sign()` 只做了環回應的聯合測試（`M_c`），
+這是曾經出過的錯：原本的 `sign()` 只做了環回應的聯合測試（`M`），
 漏掉連結標記自己的測試（`M_z`，對應 Algorithm 3 第 9–13 行）。
 少了它，`z = y + d·(r1−r2)` 的分布會洩漏秘密隨機值。
-兩個迴圈依序獨立執行，所以期望嘗試次數是 `M_z + M_c ≈ 20.5`（相加，不是相乘）。
+兩個迴圈依序獨立執行，所以期望嘗試次數是 `M_z + M ≈ 20.5`（相加，不是相乘）。
 細節見 `lrs.py` 中 `sign()` 的 docstring。
 
 **6. int64 的精確性餘裕只剩約 4 倍。**
