@@ -15,7 +15,7 @@
 lrs.py                  方案實作：Setup / KeyGen / Sign / Verify / Link、環運算、參數集
 test_correctness.py     正確性 sanity check（~30 秒，改完程式先跑這個）
 
-param_table.py          參數集與拒絕取樣常數
+param_table.py          參數集與拒絕取樣常數（對應論文的參數表）
 correctness_gate.py     經驗正確性閘門（Sign→Verify→Link 多次試驗）
 bench_scaling.py        效能量測：對各環大小 n 計時（可續跑）
 analyze_scaling.py      彙總量測結果：各演算法平均、Sign 標準差、重試次數
@@ -68,7 +68,7 @@ pip install -r requirements.txt     # numpy, matplotlib
 python3 analyze_scaling.py      # → scaling_summary.{json,md}
 python3 make_perf_table.py      # → performance.tex          （讀 scaling_summary.json）
 python3 plot_perf_figure.py     # → performance_figure.png（讀 scaling_summary.json）
-python3 param_table.py          # → table_A_params.{md,json}  （純參數，不含量測）
+python3 param_table.py          # → params.{md,json}          （純參數，不含量測）
 ```
 
 `analyze_scaling.py` 必須先跑，另外兩支讀它產生的 `scaling_summary.json`。

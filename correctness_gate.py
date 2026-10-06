@@ -1,4 +1,4 @@
-"""Experiment C1 + C2 -- correctness gate and rejection-retry distribution.
+"""Correctness gate and rejection-retry distribution.
 
 For a given (param-set, ring-size n), run R independent trials.  Each trial:
   * sign a fresh message (state-chained to the previous trial -> same signer),

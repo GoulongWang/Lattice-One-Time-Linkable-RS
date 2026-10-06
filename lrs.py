@@ -32,15 +32,15 @@ import time
 #
 # q = 2^40 - 195 is prime and == 5 (mod 8); since every N here is a power of two,
 # Lemma 1 (partial splitting of X^N+1, d=2) holds for all sets with this q, so a
-# single modulus is reused.  The "sec_bits" field is left as None (TBD): concrete
-# security estimation (lattice-estimator / Core-SVP) is deferred to future work.
+# single modulus is reused.  Concrete security estimation (lattice-estimator /
+# Core-SVP) is deferred to future work, so no set carries a bit-security figure.
 ALPHA = 11.0                 # sigma / (kappa * sqrt(l*N));  alpha=11 -> M~5.67, M_z~14.83
 Q_DEFAULT = 1099511627581    # = 2^40 - 195, prime, == 5 (mod 8)
 
 def _make_set(N, l=4, k=6, h=1, v=1, kappa=45, beta=1, q=Q_DEFAULT, alpha=ALPHA):
     sigma = round(alpha * kappa * np.sqrt(l * N))
     return {"N": N, "Q": q, "H_DIM": h, "L_DIM": l, "V_DIM": v, "K_DIM": k,
-            "KAPPA": kappa, "BETA": beta, "SIGMA": float(sigma), "sec_bits": None}
+            "KAPPA": kappa, "BETA": beta, "SIGMA": float(sigma)}
 
 PARAM_SETS = {
     # thesis parameter-table baseline (sigma rounds to the published 31680)
