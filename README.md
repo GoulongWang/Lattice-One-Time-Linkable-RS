@@ -13,10 +13,9 @@
 
 ```
 lrs.py                  方案實作：Setup / KeyGen / Sign / Verify / Link、環運算、參數集
-test_correctness.py     正確性 sanity check（~30 秒，改完程式先跑這個）
+test_correctness.py     正確性檢查（兩組參數集各四項，~50 秒，改完程式先跑這個）
 
 param_table.py          參數集與拒絕取樣常數（對應論文的參數表）
-correctness_gate.py     經驗正確性閘門（Sign→Verify→Link 多次試驗）
 bench_scaling.py        效能量測：對各環大小 n 計時（可續跑）
 analyze_scaling.py      彙總量測結果：各演算法平均、Sign 標準差、重試次數
 make_perf_table.py      效能表（LaTeX，可 \input 進論文）
@@ -78,9 +77,7 @@ python3 param_table.py          # → params.{md,json}          （純參數，�
 **先跑正確性檢查**，再花時間量測：
 
 ```bash
-python3 test_correctness.py                      # ~30 秒
-python3 correctness_gate.py lrs-1024 4 100 99999 # <參數集> <n> [次數] [時間預算秒]
-python3 correctness_gate.py lrs-2048 2 100 99999 # → results/correctness_results.json（不進版控）
+python3 test_correctness.py     # ~50 秒，lrs-1024 與 lrs-2048 都驗
 ```
 
 效能量測可續跑——每簽完一次就存檔，超過時間預算就停，再執行一次會從停的地方接下去：
@@ -163,6 +160,22 @@ lrs-2048 大 n 的次數較少是因為單次簽章要十幾秒。實際次數�
 卷積中間值峰值約 `2⁶⁰·⁸`，距離 int64 上限 `2⁶³` 不遠。
 **想再加大 `q` 或試 `N = 4096` 以上之前**，先看 `lrs.py` 的 `_check_int64_headroom()`——
 它每次 `set_params()` 都會估算並在逼近上限時警告。真的溢位的話不會報錯，會靜默算出錯誤結果。
+
+**7. 簽章鏈的身分錨點是「第一張簽章」，不是兩兩比對。**
+`sign()` 在第一次簽章時把 state 記成 `(m, L)`，之後每一次都原樣帶著不改
+（`lrs.py` 的 `new_state = state`）。所以每張後續簽章帶的差值都以錨點的 `r1` 為基準，
+**每一張都連得回第 1 張，但兩張後續簽章之間連不起來**：
+
+| `new_state` | 1↔2 | 1↔3 | 2↔3 |
+|---|---|---|---|
+| `state`（目前的實作） | 1 | 1 | 0 |
+| `(m, L)`（改成每次更新） | 1 | 0 | 1 |
+
+`new_state = state` 那行看起來很像「忘了更新」，但**改掉它會壞掉連結性**，
+而且只比對 1↔2 是分不出來的（兩種寫法都回 1）——
+這就是 `test_correctness.py` 第 3 項要簽三張簽章的原因。
+至於 `2↔3 == 0`，那是設計而非限制；真的想讓任兩張都連得起來，
+等於改動論文裡 linkability 的定義，請先回論文確認，不要直接把測試裡那行刪掉。
 
 ---
 

@@ -24,7 +24,3 @@ results/performance.tex
 results/performance_figure.png
 results/params.json
 results/params.md
-
-# correctness_gate.py writes this; it is a pass/fail gate for anyone who edits
-# lrs.py, not a result the thesis cites, so it is not tracked.
-results/correctness_results.json
