@@ -38,16 +38,25 @@ def unit_test_wrong_message(ctx):
     print(f"[2] 篡改訊息驗證失敗: {'PASS' if ret else 'FAIL'}")
     return ret
 
-# 3. Link 正確性
+# 3. Link 正確性：簽章鏈上的每一張都連回第一張（錨點）
 def unit_test_link(ctx):
     pp, keys, L, signer, rng = ctx
     pk, sk, st = keys[signer]
-    sig1, state = lrs.sign(pp, b"m1", L, sk, None, signer)
-    sig2, _ = lrs.sign(pp, b"m2", L, sk, state, signer)
-    v = lrs.verify(pp, b"m2", L, sig2)
-    lk = lrs.link(pp, b"m1", b"m2", L, L, sig1, sig2)
-    ret = True if v == 1 and lk == 1 else False
-    print(f"[3] Link 正確性: {'PASS' if ret else 'FAIL'}")
+    sig1, state = lrs.sign(pp, b"m1", L, sk, None, signer)   # 錨點：第一次簽章
+    sig2, state = lrs.sign(pp, b"m2", L, sk, state, signer)
+    sig3, _ = lrs.sign(pp, b"m3", L, sk, state, signer)
+    ok = lrs.verify(pp, b"m3", L, sig3) == 1
+    ok &= lrs.link(pp, b"m1", b"m2", L, L, sig1, sig2) == 1
+    # sign() 把 state 凍結在錨點（lrs.py 的 new_state = state），所以第三張簽章帶的
+    # 差值仍然以錨點的 r1 為基準，照樣連回第一張。若有人把 state 改成每次更新，
+    # 上面那行會照樣通過，只有這一行會壞 —— 整個 repo 只有這裡擋得住那個改動。
+    ok &= lrs.link(pp, b"m1", b"m3", L, L, sig1, sig3) == 1
+    # 身分錨點是第一張簽章，不是兩兩比對，所以兩張後續簽章之間連不起來。
+    # 這個 0 是設計而非限制：要讓它變成 1 等於改動論文裡 linkability 的定義，
+    # 請先回論文確認，不要直接把這行刪掉。
+    ok &= lrs.link(pp, b"m2", b"m3", L, L, sig2, sig3) == 0
+    ret = bool(ok)
+    print(f"[3] Link 正確性（三張簽章鏈）: {'PASS' if ret else 'FAIL'}")
     return ret
 
 # 4. 不同簽章者不可連結
@@ -56,7 +65,10 @@ def unit_test_link_different_signers(ctx):
     pk, sk, st = keys[signer]
     other = int(rng.choice([i for i in range(n) if i != signer]))
     pkB, skB, stB = keys[other]
-    sigA, _ = lrs.sign(pp, b"vote-A", L, sk, st, signer)
+    # sigA 取「第二次簽章」：它帶著非零的 d*(r1-r2)，是 link() 會真正動用承諾差值
+    # 運算的情況。兩邊都用第一次簽章（r1=r2、z=y）是最寬鬆的個案，驗不到什麼。
+    _, stA = lrs.sign(pp, b"vote-first", L, sk, None, signer)
+    sigA, _ = lrs.sign(pp, b"vote-A", L, sk, stA, signer)
     sigB, _ = lrs.sign(pp, b"vote-A", L, skB, stB, other)
     lk = lrs.link(pp, b"vote-A", b"vote-A", L, L, sigA, sigB)
     ret = True if lk == 0 else False
