@@ -36,7 +36,7 @@ sk0 = keys[0][1]
 sk1 = keys[1][1]
 
 verify_ok = link_ok = nonlink_ok = 0
-retries = []
+retries, retries_tag, retries_ring = [], [], []
 trials = 0
 anchor = None         # (msg, sig) of the FIRST signature (the linkable-tag anchor)
 state = None
@@ -48,6 +48,8 @@ for r in range(reps):
     msg = f"ct-{param}-{n}-{r}".encode()
     sig, state = lrs.sign(pp, msg, L, sk0, state, 0)
     retries.append(lrs._LAST_RETRIES)
+    retries_tag.append(lrs._LAST_RETRIES_TAG)
+    retries_ring.append(lrs._LAST_RETRIES_RING)
     trials += 1
     if lrs.verify(pp, msg, L, sig) == 1:
         verify_ok += 1
@@ -73,9 +75,13 @@ entry = {
     "nonlink_success": f"{nonlink_ok}/{link_trials}",
     "all_pass": (verify_ok == trials and link_ok == link_trials and nonlink_ok == link_trials),
     "retries_mean": float(np.mean(retries)),
+    "retries_tag_mean": float(np.mean(retries_tag)),
+    "retries_ring_mean": float(np.mean(retries_ring)),
     "retries_max": int(np.max(retries)),
     "retries_all": retries,
+    "Mz_theory": float(lrs.MZ),
     "Mc_theory": float(lrs.MC),
+    "Mtotal_theory": float(lrs.MZ + lrs.MC),
 }
 
 data = {}
@@ -88,4 +94,6 @@ with open(OUT, "w") as f:
 
 print(f"  -> verify {entry['verify_success']}  link {entry['link_success']}  "
       f"nonlink {entry['nonlink_success']}  all_pass={entry['all_pass']}  "
-      f"retries mean {entry['retries_mean']:.1f} (theory {entry['Mc_theory']:.1f}) max {entry['retries_max']}")
+      f"retries mean {entry['retries_mean']:.1f} (theory {entry['Mtotal_theory']:.1f} = "
+      f"Mz {entry['Mz_theory']:.1f} + Mc {entry['Mc_theory']:.1f}) max {entry['retries_max']}  "
+      f"[tag mean {entry['retries_tag_mean']:.1f}, ring mean {entry['retries_ring_mean']:.1f}]")

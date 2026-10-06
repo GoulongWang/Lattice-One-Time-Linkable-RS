@@ -32,9 +32,9 @@ def rp(name): return os.path.join(R, name)
 try:
     A_rows = json.load(open(rp("table_A_params.json")))
     a_hdr = ["Parameter Set", "N", "q", "ceil(log2 q)", "h", "l", "v", "k",
-             "kappa", "beta", "sigma", "M_c", "Security (bits)"]
+             "kappa", "beta", "sigma", "M_z (tag)", "M_c (ring)", "M_total", "Security (bits)"]
     a_keys = ["set", "N", "q_expr", "log2q", "h", "l", "v", "k", "kappa", "beta",
-              "sigma", "Mc", "sec_bits"]
+              "sigma", "Mz", "Mc", "Mtotal", "sec_bits"]
     a_md = ["| " + " | ".join(a_hdr) + " |",
             "|" + "|".join(["---"] * len(a_hdr)) + "|"]
     for r in A_rows:
@@ -46,7 +46,9 @@ try:
         f.write("Notes: q = %s (prime, == 5 mod 8) reused for all sets; every N is a\n"
                 % A_rows[0]["q_expr"])
         f.write("power of two, so Lemma 1 (partial splitting of X^N+1, d=2) holds throughout.\n")
-        f.write("M_c is the single joint rejection-sampling constant; E[attempts] = M_c.\n")
+        f.write("Two independent rejection-sampling loops run per signature: M_z guards the\n")
+        f.write("linkable tag's response (Algorithm 3 lines 9-13); M_c is the joint constant\n")
+        f.write("over the ring response z_j||z_c,j (lines 15-21). E[attempts] = M_z + M_c = M_total.\n")
         f.write("Security (bits) = TBD: concrete lattice-estimator / Core-SVP evaluation is deferred.\n")
         f.write("All sets satisfy the correctness constraints (q==5 mod 8; M_c > 1, finite).\n")
     print(a_md_txt)
@@ -70,7 +72,9 @@ rows = [
     ("PK (KB)",             lambda e: f"{e['pk_kb']:.1f}"),
     ("SK (KB)",             lambda e: f"{e['sk_kb']:.2f}"),
     ("Signature (KB)",      lambda e: f"{e['sig_kb']:.1f}"),
-    ("Sign retries (mean)", lambda e: f"{e['retries_mean']:.1f}"),
+    ("Sign retries, tag (mean)",  lambda e: f"{e.get('retries_tag_mean', float('nan')):.1f}"),
+    ("Sign retries, ring (mean)", lambda e: f"{e.get('retries_ring_mean', float('nan')):.1f}"),
+    ("Sign retries, total (mean)", lambda e: f"{e['retries_mean']:.1f}"),
 ]
 
 def render_table(param):
@@ -96,11 +100,12 @@ with open(rp("table_B_scaling.md"), "w") as f:
     f.write("# Table B -- Ring-size scaling\n\n")
     f.write("\n\n".join(sections) + "\n\n")
     f.write(f"Environment: {B.get('env','?')}, Python {B.get('python','?')}, pure-NumPy reference.\n")
-    f.write("Sign is dominated by Lyubashevsky rejection sampling. A single joint rejection "
-            "test over the stacked response (z || z_c) is used, with combined constant "
-            "M_c ~ 5.67 (geometric retry mean), so per-signature time varies widely. "
+    f.write("Sign runs TWO independent Lyubashevsky rejection-sampling loops per signature: "
+            "a tag loop (constant M_z ~ 14.83) guarding the linkable tag's response, then a "
+            "ring loop (joint constant M_c ~ 5.67) over the stacked ring response (z || z_c). "
+            "E[total attempts] = M_z + M_c ~ 20.5, so per-signature time varies widely. "
             "Times are arithmetic means over the reps listed below; the mean (not the "
-            "median) is reported because E[Sign] = M_c x per-attempt cost is what the "
+            "median) is reported because E[Sign] = M_total x per-attempt cost is what the "
             "theory predicts. Per-point medians are kept in benchmark_full.json. "
             "Verify and Signature size scale linearly in n; KeyGen and Link are "
             "~constant in n.\n")
@@ -137,7 +142,7 @@ print("wrote table_B_scaling.md + table_B_scaling.png")
 try:
     C = json.load(open(rp("correctness_results.json")))
     hdr = ["Parameter Set", "n", "Trials", "Verify", "Link", "Non-link", "All pass",
-           "Retries mean", "Theory M_c", "Retries max"]
+           "Retries mean (tag+ring)", "Theory M_total", "Retries max"]
     md = ["| " + " | ".join(hdr) + " |", "|" + "|".join(["---"] * len(hdr)) + "|"]
     order = ["lrs-1024", "lrs-2048"]
     items = sorted(C.values(), key=lambda e: (order.index(e["param"]) if e["param"] in order else 9, e["n"]))
@@ -146,15 +151,17 @@ try:
             e["param"], str(e["n"]), str(e["trials"]),
             e["verify_success"], e["link_success"], e["nonlink_success"],
             "Yes" if e["all_pass"] else "No",
-            f"{e['retries_mean']:.1f}", f"{e['Mc_theory']:.2f}", str(e["retries_max"])]) + " |")
+            f"{e['retries_mean']:.1f}", f"{e.get('Mtotal_theory', e.get('Mc_theory', float('nan'))):.2f}",
+            str(e["retries_max"])]) + " |")
     with open(rp("table_C1_correctness.md"), "w") as f:
         f.write("# Table C1 -- Empirical correctness gate (Verify / Link / Non-link)\n\n")
         f.write("\n".join(md) + "\n\n")
         f.write("Verify = honest signatures accepted; Link = same-signer pairs linked; "
                 "Non-link = different-signer pairs not linked. 100% across all sets validates "
-                "the bounded-norm parameter constraints. Retry mean tracks the single joint "
-                "rejection-sampling constant M_c (Theory M_c column; ~constant across "
-                "parameter sets since alpha is fixed).\n")
+                "the bounded-norm parameter constraints. Retry mean tracks the total of two "
+                "independent rejection-sampling loops, M_z (tag) + M_c (ring) = M_total "
+                "(Theory M_total column; both constants are ~constant across parameter sets "
+                "since alpha is fixed).\n")
     print("\n".join(md))
     print("wrote table_C1_correctness.md")
 except FileNotFoundError:
