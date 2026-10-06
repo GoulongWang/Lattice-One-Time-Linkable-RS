@@ -55,7 +55,7 @@ pip install -r requirements.txt     # numpy, matplotlib
 ```bash
 python3 analyze_scaling.py      # → scaling_summary.{json,md}
 python3 make_perf_table.py      # → performance.tex          （讀 scaling_summary.json）
-python3 plot_perf_figure.py     # → performance_figure.{png,pdf}（讀 scaling_summary.json）
+python3 plot_perf_figure.py     # → performance_figure.png（讀 scaling_summary.json）
 python3 param_table.py          # → table_A_params.{md,json}  （純參數，不含量測）
 ```
 
