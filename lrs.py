@@ -26,15 +26,15 @@ import time
 # Security in this family scales primarily with the polynomial degree N (lattice
 # dimension ~ N * module-rank) and the module ranks (l, k).  We expose several
 # sets at different N; the Gaussian width sigma is scaled as alpha * kappa *
-# sqrt(l*N) with a FIXED alpha so the rejection constants M1, M2 stay constant
-# across sets (well-behaved retry count).  alpha = 11 reproduces the thesis
+# sqrt(l*N) with a FIXED alpha so the rejection constants M and M_z stay
+# constant across sets (well-behaved retry count).  alpha = 11 reproduces the thesis
 # published value sigma = 31680 at N = 1024.
 #
 # q = 2^40 - 195 is prime and == 5 (mod 8); since every N here is a power of two,
 # Lemma 1 (partial splitting of X^N+1, d=2) holds for all sets with this q, so a
 # single modulus is reused.  The "sec_bits" field is left as None (TBD): concrete
 # security estimation (lattice-estimator / Core-SVP) is deferred to future work.
-ALPHA = 11.0                 # sigma / (kappa * sqrt(l*N));  alpha=11 -> M1~2.99
+ALPHA = 11.0                 # sigma / (kappa * sqrt(l*N));  alpha=11 -> M~5.67, M_z~14.83
 Q_DEFAULT = 1099511627581    # = 2^40 - 195, prime, == 5 (mod 8)
 
 def _make_set(N, l=4, k=6, h=1, v=1, kappa=45, beta=1, q=Q_DEFAULT, alpha=ALPHA):
@@ -52,17 +52,17 @@ PARAM_SETS = {
 # Module globals are (re)bound by set_params(); a default is set at import time
 # below so existing scripts that `import lrs` keep working unchanged.
 N = Q = QH = H_DIM = L_DIM = V_DIM = K_DIM = KAPPA = BETA = SIGMA = None
-T1 = T2 = A1 = A2 = M1 = M2 = None
-TC = AC = M = None    # ring-response rejection constants; the thesis parameter table calls M just M.
-                      # The C in TC/AC is "combined": they are taken over the STACKED (l+k)-dim
-                      # response (z_j || z_c,j), not over z_j alone.
+T2 = None             # kappa*sqrt(k*N): the worst-case bound on the z_c center d*r2
+TC = AC = M = None    # ring-response rejection constant M (the thesis parameter table's M) and
+                      # its two intermediates.  The C is "combined": TC/AC are taken over the
+                      # STACKED (l+k)-dim response (z_j || z_c,j), not over z_j alone.
 TZ = AZ = MZ = None   # tag-response rejection constant (Algorithm 3 line 13): center v = d*(r1-r2)
 PARAM_NAME = None
 
 def set_params(name):
     """Rebind module-level parameter globals to the named set in PARAM_SETS."""
     global N, Q, QH, H_DIM, L_DIM, V_DIM, K_DIM, KAPPA, BETA, SIGMA
-    global T1, T2, A1, A2, M1, M2, TC, AC, M, TZ, AZ, MZ, PARAM_NAME
+    global T2, TC, AC, M, TZ, AZ, MZ, PARAM_NAME
     ps = PARAM_SETS[name] if isinstance(name, str) else name
     PARAM_NAME = name if isinstance(name, str) else "custom"
     N = ps["N"]; Q = ps["Q"]
@@ -70,18 +70,12 @@ def set_params(name):
     KAPPA = ps["KAPPA"]; BETA = ps["BETA"]; SIGMA = ps["SIGMA"]
     assert Q % 8 == 5, "q must be == 5 (mod 8) for Lemma 1 (partial splitting, d=2)"
     QH = Q // 2  # for centered reduction
-    # rejection-sampling repetition constants M (Theorem 1), from sigma = alpha*T:
-    #   z_j   center v = d*sk,  T  = kappa*sqrt(l*N)
-    #   z_c,j center v = d*r2,  T2 = kappa*sqrt(k*N)
-    T1 = KAPPA * np.sqrt(L_DIM * N)
-    T2 = KAPPA * np.sqrt(K_DIM * N)
-    A1 = SIGMA / T1
-    A2 = SIGMA / T2
-    M1 = np.exp(12.0 / A1 + 1.0 / (2 * A1 * A1))
-    M2 = np.exp(12.0 / A2 + 1.0 / (2 * A2 * A2))
-    # combined rejection over the stacked response (z_j || z_c,j), center
-    # v = (d*sk || d*r2), T = kappa*sqrt((l+k)*N).  Because sqrt(l+k) <
-    # sqrt(l)+sqrt(k), one joint test has M < M1*M2 -> ~half the retries.
+    # rejection-sampling repetition constants (Theorem 1), from sigma = alpha*T.
+    T2 = KAPPA * np.sqrt(K_DIM * N)     # worst-case bound on the z_c center d*r2
+    # ONE combined rejection over the stacked response (z_j || z_c,j), center
+    # v = (d*sk || d*r2), T = kappa*sqrt((l+k)*N).  Testing z_j and z_c,j
+    # separately would cost 2.99 * 3.83 = 11.44 attempts in expectation; because
+    # sqrt(l+k) < sqrt(l)+sqrt(k), the single joint test costs M = 5.67 -- half.
     TC = KAPPA * np.sqrt((L_DIM + K_DIM) * N)
     AC = SIGMA / TC
     M = np.exp(12.0 / AC + 1.0 / (2 * AC * AC))
@@ -371,7 +365,7 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=2000):
         # rejection sampling (Theorem 1): single joint test over the stacked
         # response (z_j || z_c,j) with combined center v = (d*sk || d*r2).
         # Equivalent to one Lyubashevsky rejection on the full vector, and
-        # cheaper in expectation than two separate tests (M < M1*M2).
+        # cheaper in expectation than two separate tests (5.67 vs 11.44).
         v1 = scalar_vec(d[j], sk)
         v2 = scalar_vec(d[j], r2)
         if not _rej_accept(z[j] + z_c[j], v1 + v2, SIGMA, M):
