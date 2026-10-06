@@ -20,8 +20,8 @@ NS = [1, 2, 4, 8, 16, 32, 64]
 PARAMS = ["lrs-1024", "lrs-2048"]
 _SR = {"lrs-1024": 30, "lrs-2048": 20}
 def sign_reps(param, n):   # lrs-2048 large rings cost ~10 s per signature, so fewer reps
-    if param == "lrs-2048" and n >= 56: return 8
-    return 12 if (param == "lrs-2048" and n >= 24) else _SR[param]
+    if param == "lrs-2048" and n >= 64: return 8
+    return 12 if (param == "lrs-2048" and n >= 32) else _SR[param]
 VERIFY_REPS = 30      # timed on each produced signature, cycled
 KG_REPS, LINK_REPS = 30, 50
 budget = float(sys.argv[1]) if len(sys.argv) > 1 else 160.0
