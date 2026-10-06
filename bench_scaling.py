@@ -91,7 +91,7 @@ for param in PARAMS:
                 P["link"].append(ms(lambda: lrs.link(pp, m1, m2, L, L, s1, s2))[1])
             pkb, skb, sgb = lrs.sizes_bits(n)
             P.update(pk_kb=pkb/8192, sk_kb=skb/8192, sig_kb=sgb/8192,
-                     Mz=float(lrs.MZ), Mc=float(lrs.MC))
+                     Mz=float(lrs.MZ), M=float(lrs.M))
             save()
         print(f"{param} n={n}: sign {np.mean(P['sign']):.0f}ms verify {np.mean(P['verify']):.1f}ms "
               f"link {np.mean(P['link']):.1f}ms", flush=True)

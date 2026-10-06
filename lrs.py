@@ -53,14 +53,16 @@ PARAM_SETS = {
 # below so existing scripts that `import lrs` keep working unchanged.
 N = Q = QH = H_DIM = L_DIM = V_DIM = K_DIM = KAPPA = BETA = SIGMA = None
 T1 = T2 = A1 = A2 = M1 = M2 = None
-TC = AC = MC = None   # combined (stacked l+k) rejection constants for the ring response (z_j || z_c,j)
+TC = AC = M = None    # ring-response rejection constants; the thesis parameter table calls M just M.
+                      # The C in TC/AC is "combined": they are taken over the STACKED (l+k)-dim
+                      # response (z_j || z_c,j), not over z_j alone.
 TZ = AZ = MZ = None   # tag-response rejection constant (Algorithm 3 line 13): center v = d*(r1-r2)
 PARAM_NAME = None
 
 def set_params(name):
     """Rebind module-level parameter globals to the named set in PARAM_SETS."""
     global N, Q, QH, H_DIM, L_DIM, V_DIM, K_DIM, KAPPA, BETA, SIGMA
-    global T1, T2, A1, A2, M1, M2, TC, AC, MC, TZ, AZ, MZ, PARAM_NAME
+    global T1, T2, A1, A2, M1, M2, TC, AC, M, TZ, AZ, MZ, PARAM_NAME
     ps = PARAM_SETS[name] if isinstance(name, str) else name
     PARAM_NAME = name if isinstance(name, str) else "custom"
     N = ps["N"]; Q = ps["Q"]
@@ -79,13 +81,13 @@ def set_params(name):
     M2 = np.exp(12.0 / A2 + 1.0 / (2 * A2 * A2))
     # combined rejection over the stacked response (z_j || z_c,j), center
     # v = (d*sk || d*r2), T = kappa*sqrt((l+k)*N).  Because sqrt(l+k) <
-    # sqrt(l)+sqrt(k), one joint test has M_c < M1*M2 -> ~half the retries.
+    # sqrt(l)+sqrt(k), one joint test has M < M1*M2 -> ~half the retries.
     TC = KAPPA * np.sqrt((L_DIM + K_DIM) * N)
     AC = SIGMA / TC
-    MC = np.exp(12.0 / AC + 1.0 / (2 * AC * AC))
+    M = np.exp(12.0 / AC + 1.0 / (2 * AC * AC))
     # tag-response rejection constant M_z (thesis Algorithm 3, line 13): the
     # linkable tag's response z = y + d*(r1 - r2) needs ITS OWN independent
-    # Lyubashevsky rejection test, separate from the ring's M_c test above.
+    # Lyubashevsky rejection test, separate from the ring's M test above.
     # Center v = d*(r1 - r2) with r1, r2 in S_beta^k (ternary); by the
     # triangle inequality on the same worst-case bound used for T2 (center
     # d*r, single r in S_beta^k), ||d*(r1-r2)|| <= ||d*r1|| + ||d*r2|| <= 2*T2.
@@ -302,9 +304,9 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=2000):
       (2) ring loop (lines 15-21): using the now-fixed I (it is hashed into
           the AOS chain, so it must be fixed before the chain is built),
           resample (u, u_c) and rebuild the ring chain until the joint
-          response (z_j || z_c,j) is accepted (constant M_c).
+          response (z_j || z_c,j) is accepted (constant M).
     A failure in loop (2) only redoes the ring, not the tag -- the tag never
-    needs to change once accepted.  Expected total attempts E[Sign] = M_z + M_c.
+    needs to change once accepted.  Expected total attempts E[Sign] = M_z + M.
     """
     global _LAST_RETRIES, _LAST_RETRIES_TAG, _LAST_RETRIES_RING
     rng = rng or _rng
@@ -369,10 +371,10 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=2000):
         # rejection sampling (Theorem 1): single joint test over the stacked
         # response (z_j || z_c,j) with combined center v = (d*sk || d*r2).
         # Equivalent to one Lyubashevsky rejection on the full vector, and
-        # cheaper in expectation than two separate tests (M_c < M1*M2).
+        # cheaper in expectation than two separate tests (M < M1*M2).
         v1 = scalar_vec(d[j], sk)
         v2 = scalar_vec(d[j], r2)
-        if not _rej_accept(z[j] + z_c[j], v1 + v2, SIGMA, MC):
+        if not _rej_accept(z[j] + z_c[j], v1 + v2, SIGMA, M):
             continue
 
         sig = {"d1": d[0], "z": z, "z_c": z_c, "I": I}

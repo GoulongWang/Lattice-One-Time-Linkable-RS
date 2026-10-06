@@ -80,8 +80,8 @@ entry = {
     "retries_max": int(np.max(retries)),
     "retries_all": retries,
     "Mz_theory": float(lrs.MZ),
-    "Mc_theory": float(lrs.MC),
-    "Mtotal_theory": float(lrs.MZ + lrs.MC),
+    "M_theory": float(lrs.M),
+    "Mtotal_theory": float(lrs.MZ + lrs.M),
 }
 
 data = {}
@@ -95,5 +95,5 @@ with open(OUT, "w") as f:
 print(f"  -> verify {entry['verify_success']}  link {entry['link_success']}  "
       f"nonlink {entry['nonlink_success']}  all_pass={entry['all_pass']}  "
       f"retries mean {entry['retries_mean']:.1f} (theory {entry['Mtotal_theory']:.1f} = "
-      f"Mz {entry['Mz_theory']:.1f} + Mc {entry['Mc_theory']:.1f}) max {entry['retries_max']}  "
+      f"Mz {entry['Mz_theory']:.1f} + M {entry['M_theory']:.1f}) max {entry['retries_max']}  "
       f"[tag mean {entry['retries_tag_mean']:.1f}, ring mean {entry['retries_ring_mean']:.1f}]")
