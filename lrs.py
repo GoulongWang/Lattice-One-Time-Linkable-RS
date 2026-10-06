@@ -388,11 +388,6 @@ def _norm2(polys):
     z = np.concatenate([np.asarray(p, dtype=np.float64) for p in polys])
     return float(np.sqrt(np.dot(z, z)))
 
-def _verify_tag_check(sig):
-    """Algorithm 4 line 2 alone (for cost breakdown)."""
-    bound_tag = 2 * SIGMA * np.sqrt(N)
-    return all(_norm2([zi]) <= bound_tag for zi in sig["I"]["z"])
-
 def verify(pp, m, L, sig):
     """Algorithm 4 (Verify)."""
     n = len(L)
