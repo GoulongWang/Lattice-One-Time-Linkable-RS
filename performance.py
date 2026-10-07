@@ -1,6 +1,6 @@
-"""Summarise results/scaling_raw.json into results/scaling_summary.{json,md}.
+"""Summarise results/scaling_raw.json into results/performance.{json,md}.
 
-scaling_summary.json is the interface make_perf_table.py and plot_perf_figure.py read:
+performance.json is the interface make_perf_table.py and plot_perf_figure.py read:
 per ring size n, the mean cost of each algorithm plus the key/signature sizes.
 
 It also carries the per-point Sign repetition counts, which the README's handover
@@ -27,6 +27,6 @@ for p in PARAMS:
                       ("Signature (KB)", sig, "{:.1f}")):
         md.append(f"| {lab} | " + " | ".join(f.format(x) for x in v) + " |")
     md += ["", f"- PK {rows[0]['pk_kb']:.1f} KB, SK {rows[0]['sk_kb']:.2f} KB；Sign 次數 {S[p]['sign_reps']}"]
-json.dump(S, open("results/scaling_summary.json", "w"), indent=1, default=float)
-open("results/scaling_summary.md", "w").write("# 量測摘要（由 scaling_raw.json 重算）\n" + "\n".join(md) + "\n")
-print(open("results/scaling_summary.md").read())
+json.dump(S, open("results/performance.json", "w"), indent=1, default=float)
+open("results/performance.md", "w").write("# Performance\n" + "\n".join(md) + "\n")
+print(open("results/performance.md").read())

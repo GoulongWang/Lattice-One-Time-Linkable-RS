@@ -1,8 +1,8 @@
-"""Performance tables (powers-of-two n) from results/scaling_summary.json -> results/performance.tex
+"""Performance tables (powers-of-two n) from results/performance.json -> results/performance.tex
 
 One LaTeX table per parameter set, ready to \input into the thesis."""
 import json
-S = json.load(open("results/scaling_summary.json")); POW2 = [1, 2, 4, 8, 16, 32, 64]
+S = json.load(open("results/performance.json")); POW2 = [1, 2, 4, 8, 16, 32, 64]
 out = []
 for p in ("lrs-1024", "lrs-2048"):
     s = S[p]
