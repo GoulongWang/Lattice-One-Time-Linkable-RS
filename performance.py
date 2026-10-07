@@ -1,6 +1,6 @@
 """Summarise results/scaling_raw.json into results/performance.{json,md}.
 
-performance.json is the interface make_perf_table.py and plot_perf_figure.py read:
+performance.json is the interface latex.py and plot_perf_figure.py read:
 per ring size n, the mean cost of each algorithm plus the key/signature sizes.
 
 It also carries the per-point Sign repetition counts, which the README's handover
