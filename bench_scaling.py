@@ -52,8 +52,7 @@ done_all = True
 for param in PARAMS:
     for n in NS:
         P = data["points"].setdefault(f"{param}:{n}", {
-            "param": param, "n": n, "keygen": [], "sign": [], "retries_tag": [],
-            "retries_ring": [], "verify": [], "link": [],
+            "param": param, "n": n, "keygen": [], "sign": [], "verify": [], "link": [],
             "state": None, "chain": 0})
         if len(P["sign"]) >= sign_reps(param, n) and len(P["link"]) >= LINK_REPS:
             continue
@@ -72,8 +71,6 @@ for param in PARAMS:
             msg = f"rr-{param}-{n}-{r}".encode()
             (sig, st), t = ms(lambda: lrs.sign(pp, msg, L, sk, None, 0))
             P["sign"].append(t)
-            P["retries_tag"].append(lrs._LAST_RETRIES_TAG)
-            P["retries_ring"].append(lrs._LAST_RETRIES_RING)
             vs = []
             for _ in range(max(1, VERIFY_REPS // sign_reps(param, n) + 1)):
                 v, tv = ms(lambda: lrs.verify(pp, msg, L, sig)); assert v == 1; vs.append(tv)
@@ -90,8 +87,7 @@ for param in PARAMS:
             for _ in range(LINK_REPS):
                 P["link"].append(ms(lambda: lrs.link(pp, m1, m2, L, L, s1, s2))[1])
             pkb, skb, sgb = lrs.sizes_bits(n)
-            P.update(pk_kb=pkb/8192, sk_kb=skb/8192, sig_kb=sgb/8192,
-                     Mz=float(lrs.MZ), M=float(lrs.M))
+            P.update(pk_kb=pkb/8192, sk_kb=skb/8192, sig_kb=sgb/8192)
             save()
         print(f"{param} n={n}: sign {np.mean(P['sign']):.0f}ms verify {np.mean(P['verify']):.1f}ms "
               f"link {np.mean(P['link']):.1f}ms", flush=True)
