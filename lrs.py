@@ -281,11 +281,6 @@ def _rej_accept(z_polys, v_polys, sigma, M):
     val = np.exp((-2.0 * inner + nv2) / (2.0 * sigma * sigma)) / M
     return _rng.random() < min(1.0, val)
 
-# instrumentation: rejection-sampling attempt counts used by the last sign()
-_LAST_RETRIES = 0        # total = tag attempts + ring attempts
-_LAST_RETRIES_TAG = 0    # Algorithm 3 lines 9-13: tag response z = y + d*(r1-r2)
-_LAST_RETRIES_RING = 0   # Algorithm 3 lines 15-21: joint ring response (z_j||z_c,j)
-
 def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=2000):
     """Algorithm 3.  L is list of public keys (each a vec of h polys).
 
@@ -302,7 +297,6 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=2000):
     A failure in loop (2) only redoes the ring, not the tag -- the tag never
     needs to change once accepted.  Expected total attempts E[Sign] = M_z + M.
     """
-    global _LAST_RETRIES, _LAST_RETRIES_TAG, _LAST_RETRIES_RING
     rng = rng or _rng
     n = len(L)
     j = signer_index
@@ -321,7 +315,7 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=2000):
     r_diff = vec_sub(r1, r2)
 
     # ---- (1) tag rejection sampling (Algorithm 3, lines 9-13) --------------
-    for _tag_attempt in range(_max_retry):
+    for _ in range(_max_retry):
         y = sample_gaussian_vec(rng, K_DIM)
         B1y = matvec(pp["B1"], y)
         B2y = matvec(pp["B2"], y)
@@ -332,11 +326,10 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=2000):
             break
     else:
         raise RuntimeError("tag signing exceeded retry budget")
-    _LAST_RETRIES_TAG = _tag_attempt + 1
     I = {"z": z_tag, "d": d_tag, "c1": c1, "c2": c2}
 
     # ---- (2) ring (AOS chaining) rejection sampling (lines 15-21) ----------
-    for _attempt in range(_max_retry):
+    for _ in range(_max_retry):
         u   = sample_gaussian_vec(rng, L_DIM)
         u_c = sample_gaussian_vec(rng, K_DIM)
         d = [None] * n
@@ -372,8 +365,6 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=2000):
             continue
 
         sig = {"d1": d[0], "z": z, "z_c": z_c, "I": I}
-        _LAST_RETRIES_RING = _attempt + 1   # ring attempts incl. the accepted one
-        _LAST_RETRIES = _LAST_RETRIES_TAG + _LAST_RETRIES_RING
         return sig, new_state
     raise RuntimeError("signing exceeded retry budget")
 
