@@ -5,10 +5,9 @@
 lrs.py                  方案實作：Setup / KeyGen / Sign / Verify / Link、環運算、參數集
 test_correctness.py     正確性檢查（兩組參數集各四項，~50 秒，改完程式先跑這個）
 
-param_table.py          參數集與拒絕取樣常數（對應論文的參數表）
 bench_scaling.py        效能量測：對各環大小 n 計時（可續跑）
 performance.py          彙總量測結果：各演算法平均與 Sign 次數
-make_perf_table.py      效能表（LaTeX，可 \input 進論文）
+latex.py                效能表（LaTeX，可 \input 進論文）
 plot_perf_figure.py     效能圖（論文字型、線性 n 軸）
 
 results/
@@ -55,9 +54,8 @@ pip install -r requirements.txt     # numpy, matplotlib
 
 ```bash
 python3 performance.py          # → performance.{json,md}
-python3 make_perf_table.py      # → performance.tex          （讀 performance.json）
+python3 latex.py                # → performance.tex          （讀 performance.json）
 python3 plot_perf_figure.py     # → performance_figure.png（讀 performance.json）
-python3 param_table.py          # → params.{md,json}          （純參數，不含量測）
 ```
 
 `performance.py` 必須先跑，另外兩支讀它產生的 `performance.json`。
@@ -157,7 +155,7 @@ lrs-2048 大 n 的次數較少是因為單次簽章要十幾秒。實際次數�
 使拒絕取樣常數在各組保持不變。`q = 2⁴⁰ − 195`（質數、`≡ 5 mod 8`）兩組共用；
 因每個 `N` 都是 2 的次方，partial splitting 引理（`X^N+1`，`d = 2`）對兩組均成立。
 
-目前定義了 `lrs-1024`（N=1024）與 `lrs-2048`（N=2048），完整數值跑 `python3 param_table.py` 即得。
+目前定義了 `lrs-1024`（N=1024）與 `lrs-2048`（N=2048），完整數值見論文的參數表。
 安全等級（bits）尚未以 lattice-estimator / Core-SVP 評估，是留給後續的工作。
 
 ---
