@@ -1,5 +1,5 @@
 """Performance figure: per-algorithm running time against ring size, drawn from
-results/scaling_summary.json with a LINEAR ring-size axis, in the thesis fonts."""
+results/performance.json with a LINEAR ring-size axis, in the thesis fonts."""
 import json
 import matplotlib
 matplotlib.use("Agg")
@@ -41,7 +41,7 @@ plt.rcParams["mathtext.fontset"] = "stix"
 pick = f"Times New Roman + {KAI}"
 plt.rcParams["axes.unicode_minus"] = False
 
-S = json.load(open("results/scaling_summary.json"))
+S = json.load(open("results/performance.json"))
 POW2 = [1, 2, 4, 8, 16, 32, 64]
 fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
 for ax, param in zip(axes, ("lrs-1024", "lrs-2048")):

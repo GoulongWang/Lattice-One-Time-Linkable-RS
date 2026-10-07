@@ -1,15 +1,5 @@
-# Lattice-based One-Time Linkable Ring Signature — 參考實作與效能量測
-
-碩論〈Post-Quantum Linkable Ring Signatures Based on Lattice〉的實作與實驗程式碼。
-純 NumPy 參考實作，單執行緒。**目的是驗證正確性與分析相對成本（scaling），不是追求絕對速度**
-——經最佳化的 C/Rust + NTT 實作可以快 1–2 個數量級。
-
-本 README 只講「怎麼跑」。**實驗數字與其解讀請看論文本文**，這裡刻意不放任何數據，
-以免兩邊對不起來。
-
----
-
-## 檔案結構
+# 基於晶格之後量子可連結環簽章方案
+## 檔案說明
 
 ```
 lrs.py                  方案實作：Setup / KeyGen / Sign / Verify / Link、環運算、參數集
@@ -17,7 +7,7 @@ test_correctness.py     正確性檢查（兩組參數集各四項，~50 秒，�
 
 param_table.py          參數集與拒絕取樣常數（對應論文的參數表）
 bench_scaling.py        效能量測：對各環大小 n 計時（可續跑）
-analyze_scaling.py      彙總量測結果：各演算法平均與 Sign 次數
+performance.py          彙總量測結果：各演算法平均與 Sign 次數
 make_perf_table.py      效能表（LaTeX，可 \input 進論文）
 plot_perf_figure.py     效能圖（論文字型、線性 n 軸）
 
@@ -44,7 +34,7 @@ pip install -r requirements.txt     # numpy, matplotlib
 只有 `plot_perf_figure.py` 需要論文字型（Times New Roman + 標楷體），找不到會直接停下來，
 並列出它找過的**每一條路徑**與各自有沒有命中。macOS 把標楷體放在系統的 downloadable asset 裡，
 所以腳本有明確註冊字型檔。在沒有這些字型的機器上，其餘三支腳本照跑不誤——
-數字都在 `scaling_summary.md` 和 `performance.tex` 裡。
+數字都在 `performance.md` 和 `performance.tex` 裡。
 
 **腳本刻意不退回其他字型。** 論文格式規定中文用標楷體，換字型畫出來的圖本來就不能放進論文；
 生一張看起來沒問題、實際上用不了的圖，比直接擋下來更糟。字型怎麼補：
@@ -64,13 +54,13 @@ pip install -r requirements.txt     # numpy, matplotlib
 `scaling_raw.json` 已經在版控裡，所以**不需要重跑量測**，直接算繪即可：
 
 ```bash
-python3 analyze_scaling.py      # → scaling_summary.{json,md}
-python3 make_perf_table.py      # → performance.tex          （讀 scaling_summary.json）
-python3 plot_perf_figure.py     # → performance_figure.png（讀 scaling_summary.json）
+python3 performance.py          # → performance.{json,md}
+python3 make_perf_table.py      # → performance.tex          （讀 performance.json）
+python3 plot_perf_figure.py     # → performance_figure.png（讀 performance.json）
 python3 param_table.py          # → params.{md,json}          （純參數，不含量測）
 ```
 
-`analyze_scaling.py` 必須先跑，另外兩支讀它產生的 `scaling_summary.json`。
+`performance.py` 必須先跑，另外兩支讀它產生的 `performance.json`。
 
 ## 重新量測（只有在改動 lrs.py 之後才需要）
 
@@ -117,7 +107,7 @@ python3 bench_scaling.py 600     # 接續
 
 **1. 表上報的是平均，不是中位數。**
 理論預測的是期望值 `E[Sign] = M_total × 單趟成本`，而重試次數是幾何分布、右尾很長，
-中位數會系統性低估。`analyze_scaling.py` 只算平均，刻意不提供中位數。
+中位數會系統性低估。`performance.py` 只算平均，刻意不提供中位數。
 
 **2. 四個演算法的重複次數不一樣，不要誤以為是統一的。**
 看 `bench_scaling.py` 開頭的常數：
@@ -130,7 +120,7 @@ python3 bench_scaling.py 600     # 接續
 | Link | 50（**重複連結同一對簽章**） |
 
 lrs-2048 大 n 的次數較少是因為單次簽章要十幾秒。實際次數都存在 `scaling_raw.json` 裡，
-`analyze_scaling.py` 的摘要也會印出來——**寫論文時請照實引用，不要寫成統一的 30 次**。
+`performance.py` 的摘要也會印出來——**寫論文時請照實引用，不要寫成統一的 30 次**。
 
 **3. 量測環境是 Linux aarch64 + Python 3.10.12 + numpy 2.2.6。**
 `requirements.txt` 刻意不釘版本（釘死會讓人在別的平台裝不起來，而程式只用到 numpy 最基本的功能）。
