@@ -23,7 +23,7 @@ def sign_reps(param, n):   # lrs-2048 large rings cost ~10 s per signature, so f
     if param == "lrs-2048" and n >= 64: return 8
     return 12 if (param == "lrs-2048" and n >= 32) else _SR[param]
 VERIFY_REPS = 30      # timed on each produced signature, cycled
-KG_REPS, LINK_REPS = 30, 50
+KG_REPS, LINK_REPS = 30, 30
 budget = float(sys.argv[1]) if len(sys.argv) > 1 else 160.0
 t0 = time.perf_counter()
 
@@ -68,6 +68,9 @@ for param in PARAMS:
             if time.perf_counter() - t0 > budget:
                 break
             r = len(P["sign"])
+            # Seed per rep, not per invocation: ctx() re-seeds on every resume, which
+            # used to replay the same rejection-sampling draws as duplicate samples.
+            lrs._rng = np.random.default_rng([7, n, r])
             msg = f"rr-{param}-{n}-{r}".encode()
             (sig, st), t = ms(lambda: lrs.sign(pp, msg, L, sk, None, 0))
             P["sign"].append(t)
