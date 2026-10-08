@@ -1,11 +1,11 @@
 """Summarise results/scaling_raw.json into results/performance.{json,md}.
 
-performance.json is the interface latex.py and plot_perf_figure.py read:
+performance.json is the interface latex.py and figure.py read:
 per ring size n, the mean cost of each algorithm plus the key/signature sizes.
 
 It also carries the per-point Sign repetition counts, which the README's handover
 notes ask to be cited as measured. No plots and no curve fitting: the thesis
-figure is drawn by plot_perf_figure.py."""
+figure is drawn by figure.py."""
 import json, numpy as np
 D = json.load(open("results/scaling_raw.json"))["points"]
 PARAMS = ["lrs-1024", "lrs-2048"]
