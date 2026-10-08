@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Guolong Wang
+# SPDX-License-Identifier: GPL-3.0-or-later
 """
 整理 raw.json 資料產出 performance.{json,md}。performance.json 會用於生成論文表格 latex 及效能圖
 """

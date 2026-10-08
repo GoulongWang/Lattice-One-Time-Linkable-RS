@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Guolong Wang
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Resumable timing sweep over ring sizes: KeyGen / Sign / Verify / Link.
 
 Ring sizes are the powers of two the thesis table and figure report. Evenly

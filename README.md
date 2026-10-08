@@ -28,3 +28,8 @@ python3 performance.py # 讀 raw.json，產生 performance.{json,md}
 python3 latex.py       # 讀 performance.json，產生 performance.tex
 python3 figure.py      # 讀 performance.json，產生 performance.png
 ```
+
+## License
+Copyright (C) 2026 Guolong Wang
+
+本專案採用 GNU General Public License v3.0 或更新版本授權，詳見 [LICENSE](LICENSE)。

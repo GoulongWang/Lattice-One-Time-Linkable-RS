@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Guolong Wang
+# SPDX-License-Identifier: GPL-3.0-or-later
 """
 Post-Quantum Linkable Ring Signatures Based on Lattice 論文 PoC 實作
 Author: Guolong Wang
