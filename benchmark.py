@@ -68,6 +68,9 @@ for param in PARAMS:
             if time.perf_counter() - t0 > budget:
                 break
             r = len(P["sign"])
+            # Seed per rep, not per invocation: ctx() re-seeds on every resume, which
+            # used to replay the same rejection-sampling draws as duplicate samples.
+            lrs._rng = np.random.default_rng([7, n, r])
             msg = f"rr-{param}-{n}-{r}".encode()
             (sig, st), t = ms(lambda: lrs.sign(pp, msg, L, sk, None, 0))
             P["sign"].append(t)
