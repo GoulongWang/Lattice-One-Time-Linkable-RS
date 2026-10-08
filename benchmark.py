@@ -51,7 +51,7 @@ for param in PARAMS:
         if not P["keygen"]:
             for _ in range(KG_REPS):
                 P["keygen"].append(ms(lambda: lrs.keygen(pp, rng))[1])
-        
+
         while len(P["sign"]) < sign_reps(param, n):
             if time.perf_counter() - t0 > budget:
                 break
