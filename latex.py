@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Guolong Wang
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Performance tables (powers-of-two n) from results/performance.json -> results/performance.tex
 
 One LaTeX table per parameter set, ready to \input into the thesis."""
