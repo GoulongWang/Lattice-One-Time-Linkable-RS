@@ -1,11 +1,7 @@
-"""Summarise results/raw.json into results/performance.{json,md}.
+"""
+整理 raw.json 資料產出 performance.{json,md}。performance.json 會用於生成效能圖
+"""
 
-performance.json is the interface latex.py and figure.py read:
-per ring size n, the mean cost of each algorithm plus the key/signature sizes.
-
-It also carries the per-point Sign repetition counts, which the README's handover
-notes ask to be cited as measured. No plots and no curve fitting: the thesis
-figure is drawn by figure.py."""
 import json, numpy as np
 D = json.load(open("results/raw.json"))["points"]
 PARAMS = ["lrs-1024", "lrs-2048"]

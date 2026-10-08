@@ -23,7 +23,7 @@ def sign_reps(param, n):   # lrs-2048 large rings cost ~10 s per signature, so f
     if param == "lrs-2048" and n >= 64: return 8
     return 12 if (param == "lrs-2048" and n >= 32) else _SR[param]
 VERIFY_REPS = 30      # timed on each produced signature, cycled
-KG_REPS, LINK_REPS = 30, 50
+KG_REPS, LINK_REPS = 30, 30
 budget = float(sys.argv[1]) if len(sys.argv) > 1 else 160.0
 t0 = time.perf_counter()
 
