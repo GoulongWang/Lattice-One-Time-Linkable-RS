@@ -8,7 +8,7 @@ test_correctness.py     正確性檢查（兩組參數集各四項，~50 秒，�
 bench_scaling.py        效能量測：對各環大小 n 計時（可續跑）
 performance.py          彙總量測結果：各演算法平均與 Sign 次數
 latex.py                效能表（LaTeX，可 \input 進論文）
-plot_perf_figure.py     效能圖（論文字型、線性 n 軸）
+figure.py               效能圖（論文字型、線性 n 軸）
 
 results/
   scaling_raw.json          ← 原始量測資料（唯一被追蹤的量測結果）
@@ -30,9 +30,9 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt     # numpy, matplotlib
 ```
 
-只有 `plot_perf_figure.py` 需要論文字型（Times New Roman + 標楷體），找不到會直接停下來，
-並列出它找過的**每一條路徑**與各自有沒有命中。macOS 把標楷體放在系統的 downloadable asset 裡，
-所以腳本有明確註冊字型檔。在沒有這些字型的機器上，其餘三支腳本照跑不誤——
+只有 `figure.py` 需要論文字型（Times New Roman + 標楷體），找不到會直接停下來，
+並印出缺少哪一套字型。macOS 把標楷體放在系統的 downloadable asset 裡，
+所以腳本有明確註冊字型檔。在沒有這些字型的機器上，其餘腳本照跑不誤——
 數字都在 `performance.md` 和 `performance.tex` 裡。
 
 **腳本刻意不退回其他字型。** 論文格式規定中文用標楷體，換字型畫出來的圖本來就不能放進論文；
@@ -44,7 +44,7 @@ pip install -r requirements.txt     # numpy, matplotlib
 | Windows | 系統內建 | 系統內建 DFKai-SB |
 | Linux | 裝 `ttf-mscorefonts-installer` | 沒有，須從 macOS/Windows 複製字型檔過來 |
 
-複製來的字型檔放到錯誤訊息列出的任一路徑即可（例如 `~/fonts/BiauKaiTC.ttf`）。
+複製來的標楷體字型檔放到 `~/fonts/BiauKaiTC.ttf` 即可。
 
 ---
 
@@ -55,7 +55,7 @@ pip install -r requirements.txt     # numpy, matplotlib
 ```bash
 python3 performance.py          # → performance.{json,md}
 python3 latex.py                # → performance.tex          （讀 performance.json）
-python3 plot_perf_figure.py     # → performance_figure.png（讀 performance.json）
+python3 figure.py               # → performance_figure.png（讀 performance.json）
 ```
 
 `performance.py` 必須先跑，另外兩支讀它產生的 `performance.json`。
