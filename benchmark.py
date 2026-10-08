@@ -6,16 +6,16 @@ fit in n; that fit is no longer reported anywhere, and those points cost more
 than half the sweep, so they are gone.
 
 Each invocation works through the job queue until --budget seconds elapse, saving
-raw timings after every rep to results/scaling_raw.json (so it can be called
+raw timings after every rep to results/raw.json (so it can be called
 repeatedly; it resumes where it stopped).
 
-Usage: python3 bench_scaling.py [budget_seconds]
+Usage: python3 benchmark.py [budget_seconds]
 """
 import sys, time, json, os, platform
 import numpy as np
 import lrs
 
-RAW = "results/scaling_raw.json"
+RAW = "results/raw.json"
 NS = [1, 2, 4, 8, 16, 32, 64]
 PARAMS = ["lrs-1024", "lrs-2048"]
 _SR = {"lrs-1024": 30, "lrs-2048": 20}

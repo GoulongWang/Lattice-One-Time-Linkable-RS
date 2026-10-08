@@ -48,5 +48,5 @@ for ax, param in zip(axes, ("lrs-1024", "lrs-2048")):
     ax.set_title(f"LRS 各演算法執行時間（{param}）")
     ax.legend(); ax.grid(True, which="both", ls=":", alpha=0.5)
 fig.tight_layout()
-fig.savefig("results/performance_figure.png", dpi=200)
-print("font:", pick, "-> results/performance_figure.png")
+fig.savefig("results/performance.png", dpi=200)
+print("font:", pick, "-> results/performance.png")
