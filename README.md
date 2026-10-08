@@ -21,7 +21,7 @@ pip install -r requirements.txt
 ## 使用說明
 ```bash
 python3 correctness.py # 正確性檢查，約 50 秒
-python3 benchmark.py   # 1. 完整跑完約 24 mins，看到 ALL DONE 為結束
+python3 benchmark.py   # 完整跑完約 24 mins，看到 ALL DONE 為結束
 
 # 產論文數據
 python3 performance.py # 讀 raw.json，產生 performance.{json,md}

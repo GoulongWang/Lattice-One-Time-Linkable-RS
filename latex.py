@@ -1,8 +1,5 @@
 # Copyright (C) 2026 Guolong Wang
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Performance tables (powers-of-two n) from results/performance.json -> results/performance.tex
-
-One LaTeX table per parameter set, ready to \input into the thesis."""
 import json
 S = json.load(open("results/performance.json")); POW2 = [1, 2, 4, 8, 16, 32, 64]
 out = []

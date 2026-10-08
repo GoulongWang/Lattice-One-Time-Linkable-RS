@@ -1,18 +1,5 @@
 # Copyright (C) 2026 Guolong Wang
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Resumable timing sweep over ring sizes: KeyGen / Sign / Verify / Link.
-
-Ring sizes are the powers of two the thesis table and figure report. Evenly
-spaced sizes (24, 40, 48, 56) used to be measured as well, to support a linear
-fit in n; that fit is no longer reported anywhere, and those points cost more
-than half the sweep, so they are gone.
-
-Each invocation works through the job queue until --budget seconds elapse, saving
-raw timings after every rep to results/raw.json (so it can be called
-repeatedly; it resumes where it stopped).
-
-Usage: python3 benchmark.py [budget_seconds]
-"""
 import sys, time, json, os, platform
 import numpy as np
 import lrs
@@ -21,7 +8,7 @@ RAW = "results/raw.json"
 NS = [1, 2, 4, 8, 16, 32, 64]
 PARAMS = ["lrs-1024", "lrs-2048"]
 _SR = {"lrs-1024": 30, "lrs-2048": 20}
-def sign_reps(param, n):   # lrs-2048 large rings cost ~10 s per signature, so fewer reps
+def sign_reps(param, n):   # lrs-2048 環越大、時間越長，所以reps 少一點
     if param == "lrs-2048" and n >= 64: return 8
     return 12 if (param == "lrs-2048" and n >= 32) else _SR[param]
 VERIFY_REPS = 30      # timed on each produced signature, cycled
@@ -64,14 +51,11 @@ for param in PARAMS:
         if not P["keygen"]:
             for _ in range(KG_REPS):
                 P["keygen"].append(ms(lambda: lrs.keygen(pp, rng))[1])
-        # Sign / Verify: fresh first-time signatures (state=None) for i.i.d. reps,
-        # plus one second-time signature for Link (built once, below).
+        
         while len(P["sign"]) < sign_reps(param, n):
             if time.perf_counter() - t0 > budget:
                 break
             r = len(P["sign"])
-            # Seed per rep, not per invocation: ctx() re-seeds on every resume, which
-            # used to replay the same rejection-sampling draws as duplicate samples.
             lrs._rng = np.random.default_rng([7, n, r])
             msg = f"rr-{param}-{n}-{r}".encode()
             (sig, st), t = ms(lambda: lrs.sign(pp, msg, L, sk, None, 0))
@@ -86,7 +70,7 @@ for param in PARAMS:
         if len(P["link"]) < LINK_REPS:
             m1, m2 = b"link-first", b"link-second"
             s1, st = lrs.sign(pp, m1, L, sk, None, 0)
-            s2, _ = lrs.sign(pp, m2, L, sk, st, 0)     # second-time sig carries r1-r2
+            s2, _ = lrs.sign(pp, m2, L, sk, st, 0)
             assert lrs.verify(pp, m2, L, s2) == 1
             assert lrs.link(pp, m1, m2, L, L, s1, s2) == 1
             for _ in range(LINK_REPS):

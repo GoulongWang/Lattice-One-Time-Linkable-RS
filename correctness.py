@@ -4,7 +4,7 @@ import numpy as np
 import lrs
 
 n = 5                                # 環大小（測試用的人數，與參數集無關）
-PARAMS = ["lrs-1024", "lrs-2048"]    # 兩組參數集都要驗；lrs-2048 離 int64 上限最近
+PARAMS = ["lrs-1024", "lrs-2048"]    # 兩組參數集都要驗
 
 def build(param):
     lrs.set_params(param)
