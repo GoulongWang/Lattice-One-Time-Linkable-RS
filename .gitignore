@@ -5,4 +5,5 @@ __pycache__/
 .claude/
 results/performance.json
 results/performance.md
+results/performance.tex
 results/performance.png

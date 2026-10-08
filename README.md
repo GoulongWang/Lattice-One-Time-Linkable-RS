@@ -6,6 +6,7 @@ lrs.py                  方案實作：Setup / KeyGen / Sign / Verify / Link
 correctness.py          正確性檢查（改完程式先跑這個）
 benchmark.py            效能測量
 performance.py          整理測量數據：計算各演算法平均時間
+latex.py                效能表（LaTeX）
 figure.py               效能圖（論文圖）
 results/raw.json        原始量測資料
 ```
@@ -27,5 +28,6 @@ python3 benchmark.py   # 1. 完整跑完約 24 mins。若不小心中斷沒差�
 
 # 產論文數據
 python3 performance.py # 讀 raw.json，產生 performance.{json,md}
+python3 latex.py       # 讀 performance.json，產生 performance.tex
 python3 figure.py      # 讀 performance.json，產生 performance.png
 ```

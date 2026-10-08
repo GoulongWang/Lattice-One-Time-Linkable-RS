@@ -1,5 +1,5 @@
 """
-整理 raw.json 資料產出 performance.{json,md}。performance.json 會用於生成效能圖
+整理 raw.json 資料產出 performance.{json,md}。performance.json 會用於生成論文表格 latex 及效能圖
 """
 
 import json, numpy as np
