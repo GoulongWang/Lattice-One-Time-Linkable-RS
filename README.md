@@ -21,10 +21,7 @@ pip install -r requirements.txt
 ## 使用說明
 ```bash
 python3 correctness.py # 正確性檢查，約 50 秒
-python3 benchmark.py   # 1. 完整跑完約 24 mins。若不小心中斷沒差，raw.json 會紀錄已經寫入的資料，
-                       #    下次同指令可以直接重跑。它會接續上次沒跑完的地方直到結束。測量完的地方會跳過。
-                       # 2. 若想要從頭完整測量，記得先刪掉舊的 raw.json，否則會混到舊資料，然後再重新產生新資料。
-                       # 3. 看到 ALL DONE 為結束
+python3 benchmark.py   # 1. 完整跑完約 24 mins，看到 ALL DONE 為結束
 
 # 產論文數據
 python3 performance.py # 讀 raw.json，產生 performance.{json,md}
