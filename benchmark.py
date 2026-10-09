@@ -7,11 +7,11 @@ import lrs
 RAW = "results/raw.json"
 NS = [1, 2, 4, 8, 16, 32, 64]
 PARAMS = ["lrs-1024", "lrs-2048"]
-def sign_reps(param, n):   # 拒絕採樣讓 Sign 時間變異大，每格都取 100 次
+def sign_reps(param, n):   # 拒絕採樣讓 Sign 時間差異大，所以每格都測量 100 次較為準確
     return 100
-VERIFY_REPS = 30      # timed on each produced signature, cycled
+VERIFY_REPS = 30
 KG_REPS, LINK_REPS = 30, 30
-budget = float(sys.argv[1]) if len(sys.argv) > 1 else 160.0
+budget = float(sys.argv[1]) if len(sys.argv) > 1 else 10000.0
 t0 = time.perf_counter()
 
 data = json.load(open(RAW)) if os.path.exists(RAW) else {
