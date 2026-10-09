@@ -39,8 +39,7 @@ done_all = True
 for param in PARAMS:
     for n in NS:
         P = data["points"].setdefault(f"{param}:{n}", {
-            "param": param, "n": n, "keygen": [], "sign": [], "verify": [], "link": [],
-            "state": None, "chain": 0})
+            "param": param, "n": n, "keygen": [], "sign": [], "verify": [], "link": []})
         if len(P["sign"]) >= sign_reps(param, n) and len(P["link"]) >= LINK_REPS:
             continue
         if time.perf_counter() - t0 > budget:
