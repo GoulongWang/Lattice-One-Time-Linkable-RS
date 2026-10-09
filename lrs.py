@@ -222,6 +222,19 @@ def _rej_accept(rng, z_polys, v_polys, sigma, M):
     val = np.exp((-2.0 * inner + nv2) / (2.0 * sigma * sigma)) / M
     return rng.random() < min(1.0, val)
 
+def _ring_hash(pp, L, I, m, a, b, g):
+    # H2 的輸入順序：sign 與 verify 都經過這裡
+    P = pp["params"]
+    return H2_challenge(P, _vecbytes(P, *L), _tagbytes(P, I), m, _vecbytes(P, a), _vecbytes(P, b), _vecbytes(P, g))
+
+def _ring_next(pp, L, I, m, pk_i, z_i, zc_i, d_i):
+    # 由第 i 位成員的 (z_i, z_c_i, d_i) 算出 d_{i+1}
+    P = pp["params"]
+    alpha = vec_sub(P, matvec(P, pp["A"], z_i),  scalar_vec(P, d_i, pk_i))
+    beta  = vec_sub(P, matvec(P, pp["B1"], zc_i), scalar_vec(P, d_i, I["c1"]))
+    gamma = vec_sub(P, vec_add(P, matvec(P, pp["B2"], zc_i), z_i), scalar_vec(P, d_i, I["c2"]))
+    return _ring_hash(pp, L, I, m, alpha, beta, gamma)
+
 def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=2000):
     P, rng = pp["params"], _new_rng(rng)
     n = len(L)
@@ -264,15 +277,12 @@ def sign(pp, m, L, sk, state, signer_index, rng=None, _max_retry=2000):
         a_j = matvec(P, pp["A"],  u)
         b_j = matvec(P, pp["B1"], u_c)
         g_j = vec_add(P, matvec(P, pp["B2"], u_c), u)
-        d[(j + 1) % n] = H2_challenge(P, _vecbytes(P, *L), _tagbytes(P, I), m, _vecbytes(P, a_j), _vecbytes(P, b_j), _vecbytes(P, g_j))
+        d[(j + 1) % n] = _ring_hash(pp, L, I, m, a_j, b_j, g_j)
         i = (j + 1) % n
         while i != j:
             z[i]   = sample_gaussian_vec(P, rng, P.L_DIM)
             z_c[i] = sample_gaussian_vec(P, rng, P.K_DIM)
-            alpha = vec_sub(P, matvec(P, pp["A"], z[i]),  scalar_vec(P, d[i], L[i]))
-            beta  = vec_sub(P, matvec(P, pp["B1"], z_c[i]), scalar_vec(P, d[i], c1))
-            gamma = vec_sub(P, vec_add(P, matvec(P, pp["B2"], z_c[i]), z[i]), scalar_vec(P, d[i], c2))
-            d[(i + 1) % n] = H2_challenge(P, _vecbytes(P, *L), _tagbytes(P, I), m, _vecbytes(P, alpha), _vecbytes(P, beta), _vecbytes(P, gamma))
+            d[(i + 1) % n] = _ring_next(pp, L, I, m, L[i], z[i], z_c[i], d[i])
             i = (i + 1) % n
 
         z[j]   = vec_add(P, u,   scalar_vec(P, d[j], sk))
@@ -310,14 +320,9 @@ def verify(pp, m, L, sig):
         if _norm2(sig["z"][i]) > bound_z:   return 0
         if _norm2(sig["z_c"][i]) > bound_zc: return 0
 
-    c1, c2 = I["c1"], I["c2"]
     e = sig["d1"]
     for i in range(n):
-        alpha = vec_sub(P, matvec(P, pp["A"], sig["z"][i]),  scalar_vec(P, e, L[i]))
-        beta  = vec_sub(P, matvec(P, pp["B1"], sig["z_c"][i]), scalar_vec(P, e, c1))
-        gamma = vec_sub(P, vec_add(P, matvec(P, pp["B2"], sig["z_c"][i]), sig["z"][i]), scalar_vec(P, e, c2))
-        e = H2_challenge(P, _vecbytes(P, *L), _tagbytes(P, I), m,
-                         _vecbytes(P, alpha), _vecbytes(P, beta), _vecbytes(P, gamma))
+        e = _ring_next(pp, L, I, m, L[i], sig["z"][i], sig["z_c"][i], e)
     return 1 if all(np.array_equal(a, b) for a, b in zip(e, sig["d1"])) else 0
 
 def _link_branch(pp, carrier, other, m_carrier, L_carrier, bound):
