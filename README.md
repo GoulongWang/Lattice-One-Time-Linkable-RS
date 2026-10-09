@@ -21,13 +21,17 @@ pip install -r requirements.txt
 ## 使用說明
 ```bash
 python3 correctness.py # 正確性檢查，約 50 秒
-python3 benchmark.py   # 完整跑完約 24 mins，看到 ALL DONE 為結束
+python3 benchmark.py 30000 # 參數為時間預算（秒），完整跑完約 2 小時 10 分（Apple M2），看到 ALL DONE 為結束
 
 # 產論文數據
 python3 performance.py # 讀 raw.json，產生 performance.{json,md}
 python3 latex.py       # 讀 performance.json，產生 performance.tex
 python3 figure.py      # 讀 performance.json，產生 performance.png
 ```
+
+`benchmark.py` 的注意事項：
+- 不加參數時，時間預算只有 160 秒，到時間會印出 `PAUSED` 並停下。每次 Sign 量完都會存進 `results/raw.json`，再執行一次就會從中斷的地方繼續。
+- 如果 `results/raw.json` 已經是完整資料，程式會直接印出 `ALL DONE`，不會重新量測。要在自己的電腦上從頭量，請先把 `results/raw.json` 刪除或改名。
 
 ## License
 Copyright (C) 2026 Guolong Wang
