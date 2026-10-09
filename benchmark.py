@@ -7,10 +7,8 @@ import lrs
 RAW = "results/raw.json"
 NS = [1, 2, 4, 8, 16, 32, 64]
 PARAMS = ["lrs-1024", "lrs-2048"]
-_SR = {"lrs-1024": 30, "lrs-2048": 20}
-def sign_reps(param, n):   # lrs-2048 環越大、時間越長，所以reps 少一點
-    if param == "lrs-2048" and n >= 64: return 8
-    return 12 if (param == "lrs-2048" and n >= 32) else _SR[param]
+def sign_reps(param, n):   # 拒絕採樣讓 Sign 時間變異大，每格都取 100 次
+    return 100
 VERIFY_REPS = 30      # timed on each produced signature, cycled
 KG_REPS, LINK_REPS = 30, 30
 budget = float(sys.argv[1]) if len(sys.argv) > 1 else 160.0
