@@ -26,10 +26,8 @@ def ctx(param, n):
     key = (param, n)
     if key not in _ctx:
         _ctx.clear()
-        lrs.set_params(param)
         rng = np.random.default_rng(2024 + n)
-        lrs._rng = np.random.default_rng(7 + n)
-        pp = lrs.setup(rng)
+        pp = lrs.setup(lrs.PARAM_SETS[param], rng)
         keys = [lrs.keygen(pp, rng) for _ in range(n)]
         _ctx[key] = (pp, rng, [k[0] for k in keys], keys[0][1])
     return _ctx[key]
@@ -56,9 +54,9 @@ for param in PARAMS:
             if time.perf_counter() - t0 > budget:
                 break
             r = len(P["sign"])
-            lrs._rng = np.random.default_rng([7, n, r])
+            sign_rng = np.random.default_rng([7, n, r])
             msg = f"rr-{param}-{n}-{r}".encode()
-            (sig, st), t = ms(lambda: lrs.sign(pp, msg, L, sk, None, 0))
+            (sig, st), t = ms(lambda: lrs.sign(pp, msg, L, sk, None, 0, rng=sign_rng))
             P["sign"].append(t)
             vs = []
             for _ in range(max(1, VERIFY_REPS // sign_reps(param, n) + 1)):
@@ -69,13 +67,13 @@ for param in PARAMS:
             done_all = False; break
         if len(P["link"]) < LINK_REPS:
             m1, m2 = b"link-first", b"link-second"
-            s1, st = lrs.sign(pp, m1, L, sk, None, 0)
-            s2, _ = lrs.sign(pp, m2, L, sk, st, 0)
+            s1, st = lrs.sign(pp, m1, L, sk, None, 0, rng=rng)
+            s2, _ = lrs.sign(pp, m2, L, sk, st, 0, rng=rng)
             assert lrs.verify(pp, m2, L, s2) == 1
             assert lrs.link(pp, m1, m2, L, L, s1, s2) == 1
             for _ in range(LINK_REPS):
                 P["link"].append(ms(lambda: lrs.link(pp, m1, m2, L, L, s1, s2))[1])
-            pkb, skb, sgb = lrs.sizes_bits(n)
+            pkb, skb, sgb = lrs.sizes_bits(pp["params"], n)
             P.update(pk_kb=pkb/8192, sk_kb=skb/8192, sig_kb=sgb/8192)
             save()
         print(f"{param} n={n}: sign {np.mean(P['sign']):.0f}ms verify {np.mean(P['verify']):.1f}ms "
